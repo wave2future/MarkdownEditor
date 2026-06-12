@@ -1,0 +1,59 @@
+{
+  "name": "markdown-editor",
+  "version": "1.0.0",
+  "description": "Simple and Elegant Markdown Editor",
+  "main": "main.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac"
+  },
+  "build": {
+    "appId": "com.gg.markdowneditor",
+    "productName": "Markdown Editor",
+    "fileAssociations": [
+      {
+        "ext": "md",
+        "name": "Markdown",
+        "description": "Markdown Document",
+        "role": "Editor"
+      },
+      {
+        "ext": "markdown",
+        "name": "Markdown",
+        "description": "Markdown Document",
+        "role": "Editor"
+      }
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": "dmg"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "locales.js",
+      "renderer/**/*",
+      "node_modules/**/*"
+    ]
+  },
+  "dependencies": {
+    "codemirror": "^5.65.21",
+    "highlight.js": "^11.11.1",
+    "marked": "^18.0.5"
+  },
+  "devDependencies": {
+    "electron": "^42.4.0",
+    "electron-builder": "^26.15.2"
+  }
+}

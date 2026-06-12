@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Markdown Editor</title>
+  <link rel="stylesheet" href="../node_modules/codemirror/lib/codemirror.css">
+  <link rel="stylesheet" href="../node_modules/codemirror/theme/material-darker.css">
+  <link rel="stylesheet" id="hljs-light" href="../node_modules/highlight.js/styles/github.css">
+  <link rel="stylesheet" id="hljs-dark" href="../node_modules/highlight.js/styles/github-dark.css" disabled>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="toolbar">
+    <button id="btn-new" class="icon-btn">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+    </button>
+    <button id="btn-open" class="icon-btn">
+      <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+    </button>
+    <button id="btn-save" class="icon-btn">
+      <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+    </button>
+    <button id="btn-save-as" class="icon-btn">
+      <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="7 3 7 8 13 8"/><line x1="17" y1="12" x2="17" y2="18"/><line x1="14" y1="15" x2="20" y2="15"/></svg>
+    </button>
+    <span class="divider"></span>
+    <button id="btn-export-html" class="icon-btn">
+      <svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+    </button>
+    <button id="btn-export-pdf" class="icon-btn">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="11" x2="12" y2="17"/><polyline points="9 14 12 17 15 14"/></svg>
+    </button>
+
+    <span class="spacer"></span>
+
+    <div class="view-switch">
+      <button id="btn-view-edit" class="icon-btn">
+        <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+      </button>
+      <button id="btn-view-split" class="icon-btn active">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+      </button>
+      <button id="btn-view-preview" class="icon-btn">
+        <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </div>
+
+    <span class="divider"></span>
+
+    <select id="theme-select">
+      <option value="system"></option>
+      <option value="light"></option>
+      <option value="dark"></option>
+    </select>
+    <select id="lang-select"></select>
+  </div>
+
+  <div id="main" class="mode-split">
+    <div id="editor-host"></div>
+    <div id="preview" class="markdown-body"></div>
+  </div>
+
+  <div id="statusbar">
+    <span id="status-path"></span>
+    <span id="status-msg"></span>
+    <span class="spacer"></span>
+    <span id="status-count"></span>
+  </div>
+
+  <script src="../node_modules/codemirror/lib/codemirror.js"></script>
+  <script src="../node_modules/codemirror/mode/xml/xml.js"></script>
+  <script src="../node_modules/codemirror/mode/markdown/markdown.js"></script>
+  <script src="../node_modules/codemirror/addon/display/placeholder.js"></script>
+  <script src="../node_modules/codemirror/addon/edit/continuelist.js"></script>
+  <script src="../node_modules/marked/lib/marked.umd.js"></script>
+  <script src="../locales.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
