@@ -139,6 +139,26 @@ body {
   background: var(--bg);
 }
 
+/* 分屏模式下编辑区宽度由可拖动的分隔条控制（--split-pos，默认各占一半） */
+.mode-split #editor-host { flex: 0 0 var(--split-pos, 50%); }
+.mode-split #preview { flex: 1 1 0; border-left: none; }
+
+/* 中间分隔条：仅分屏模式可见，可左右拖动 */
+#splitter { display: none; }
+.mode-split #splitter {
+  display: block;
+  flex: 0 0 6px;
+  cursor: col-resize;
+  background: var(--border);
+  transition: background .15s;
+}
+.mode-split #splitter:hover,
+body.dragging #splitter { background: var(--accent); }
+/* 拖动时禁止选中文字、避免编辑区/预览区抢走鼠标事件 */
+body.dragging { cursor: col-resize; user-select: none; }
+body.dragging #editor-host,
+body.dragging #preview { pointer-events: none; }
+
 .mode-edit #preview { display: none; }
 .mode-preview #editor-host { display: none; }
 .mode-preview #preview { border-left: none; }
@@ -197,3 +217,6 @@ body {
 .markdown-body hr { border: none; border-top: 2px solid var(--heading-border); margin: 20px 0; }
 .markdown-body a { color: var(--accent); text-decoration: none; }
 .markdown-body a:hover { text-decoration: underline; }
+/* 行间公式横向滚动，避免长公式撑破布局；行内公式跟随正文字号 */
+.markdown-body .katex-display { overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
+.markdown-body .math-error { color: #cf222e; }

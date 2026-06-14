@@ -36,14 +36,81 @@ function escapeHtml(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+function escapeAttr(s) {
+  return escapeHtml(s).replace(/"/g, '&quot;');
+}
+
+// 当前文档所在位置的 file:// URL，用来把 Markdown 里的相对图片路径解析成绝对路径。
+// 预览页面本身是 renderer/index.html，相对路径默认相对它解析，所以必须重写。
+let docBaseUrl = null;
+
+function setDocBaseUrl(filePath) {
+  docBaseUrl = filePath ? window.api.pathToFileUrl(filePath) : null;
+}
+
+function resolveSrc(src) {
+  if (!src || !docBaseUrl) return src;
+  // 已是绝对 URL（http(s):、file:、data: 等）或协议相对路径时不处理
+  if (/^[a-z][a-z0-9+.-]*:/i.test(src) || src.startsWith('//')) return src;
+  try {
+    return new URL(src, docBaseUrl).href;
+  } catch {
+    return src;
+  }
+}
+
+// ---- 数学公式（KaTeX，katex 全局变量由 index.html 的 script 标签提供） ----
+
+function renderMath(tex, displayMode) {
+  try {
+    // throwOnError:false 时 KaTeX 会把出错的公式渲染成红色提示，而不是抛异常
+    return katex.renderToString(tex, { displayMode, throwOnError: false });
+  } catch {
+    return `<code class="math-error">${escapeHtml(tex)}</code>`;
+  }
+}
+
+// 用 marked 扩展在其它内联规则之前拦截 $...$ / $$...$$，
+// 否则公式里的下划线、星号会被当成 Markdown 强调语法处理。
+const blockMath = {
+  name: 'blockMath',
+  level: 'block',
+  start(src) { const i = src.indexOf('$$'); return i < 0 ? undefined : i; },
+  tokenizer(src) {
+    const m = /^\$\$([\s\S]+?)\$\$(?:\n+|$)/.exec(src);
+    if (m) return { type: 'blockMath', raw: m[0], text: m[1].trim() };
+  },
+  renderer(token) { return renderMath(token.text, true); }
+};
+
+const inlineMath = {
+  name: 'inlineMath',
+  level: 'inline',
+  start(src) { const i = src.indexOf('$'); return i < 0 ? undefined : i; },
+  tokenizer(src) {
+    // Pandoc 风格：开 $ 后不接空白，闭 $ 前不接空白且后面不接数字，
+    // 这样 "花了 $5 和 $10" 这类货币写法不会被当成公式
+    const m = /^\$(?!\s)((?:\\\$|[^$\n])+?)(?<!\s)\$(?!\d)/.exec(src);
+    if (m) return { type: 'inlineMath', raw: m[0], text: m[1].trim() };
+  },
+  renderer(token) { return renderMath(token.text, false); }
+};
+
 marked.use({
   breaks: true,
   gfm: true,
+  extensions: [blockMath, inlineMath],
   renderer: {
     code(token) {
       const langName = (token.lang || '').match(/^\S*/)[0];
       const highlighted = window.api.highlight(token.text, langName) ?? escapeHtml(token.text);
       return `<pre><code class="hljs">${highlighted}</code></pre>\n`;
+    },
+    image(token) {
+      const src = escapeAttr(resolveSrc(token.href || ''));
+      const alt = escapeAttr(token.text || '');
+      const title = token.title ? ` title="${escapeAttr(token.title)}"` : '';
+      return `<img src="${src}" alt="${alt}"${title}>`;
     }
   }
 });
@@ -143,6 +210,7 @@ function setDirty(value) {
 
 function loadDocument(filePath, content) {
   currentFilePath = filePath;
+  setDocBaseUrl(filePath);
   savedContent = content;
   cm.setValue(content);
   cm.clearHistory();
@@ -196,6 +264,7 @@ async function saveFileAs() {
   const filePath = await window.api.saveFileAs(cm.getValue(), currentFilePath || `${L().ui.untitled}.md`);
   if (!filePath) return false;
   currentFilePath = filePath;
+  setDocBaseUrl(filePath);
   savedContent = cm.getValue();
   setDirty(false);
   return true;
@@ -240,6 +309,45 @@ function setView(mode) {
   if (mode !== 'preview') cm.refresh();
   if (mode !== 'edit') render();
 }
+
+// ---- 可拖动的分隔条（调整编辑区/预览区宽度） ----
+
+const splitter = document.getElementById('splitter');
+
+// 恢复上次的分屏比例
+const savedSplit = parseFloat(localStorage.getItem('splitPos'));
+if (savedSplit >= 15 && savedSplit <= 85) {
+  main.style.setProperty('--split-pos', savedSplit + '%');
+}
+
+splitter.addEventListener('mousedown', (e) => {
+  e.preventDefault();
+  document.body.classList.add('dragging');
+
+  const onMove = (ev) => {
+    const rect = main.getBoundingClientRect();
+    let pct = ((ev.clientX - rect.left) / rect.width) * 100;
+    pct = Math.min(85, Math.max(15, pct));
+    main.style.setProperty('--split-pos', pct + '%');
+  };
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.body.classList.remove('dragging');
+    const pct = main.style.getPropertyValue('--split-pos');
+    if (pct) localStorage.setItem('splitPos', parseFloat(pct));
+    cm.refresh();
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+});
+
+// 双击分隔条恢复到 50/50
+splitter.addEventListener('dblclick', () => {
+  main.style.setProperty('--split-pos', '50%');
+  localStorage.setItem('splitPos', 50);
+  cm.refresh();
+});
 
 // ---- 事件绑定 ----
 

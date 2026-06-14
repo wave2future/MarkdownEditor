@@ -66,3 +66,25 @@ sample.md            测试文档
   `printToPDF`（A4、含背景色）。
 - preload 需要 `require('highlight.js')`，因此窗口关闭了 Electron 默认的 preload 沙箱
   （`sandbox: false`，仍保持 contextIsolation）。
+  
+---
+
+## LaTex 例子
+
+行内公式：$E = mc^2$
+
+块级公式：
+$$
+\int_{-\infty}^{\infty} e^{-x^2} \, dx = \sqrt{\pi}
+$$
+
+更复杂的例子：
+$$
+\begin{cases}
+\nabla \cdot \mathbf{E} = \frac{\rho}{\varepsilon_0} \\[2ex]
+\nabla \cdot \mathbf{B} = 0 \\[2ex]
+\nabla \times \mathbf{E} = -\frac{\partial \mathbf{B}}{\partial t} \\[2ex]
+\nabla \times \mathbf{B} = \mu_0 \mathbf{J} + \mu_0 \varepsilon_0 \frac{\partial \mathbf{E}}{\partial t}
+\end{cases}
+$$
+

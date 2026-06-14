@@ -69,3 +69,27 @@ Technical notes:
   hidden BrowserWindow, and calls `printToPDF` (A4, with background colors).
 - The preload script needs `require('highlight.js')`, so the window disables Electron's default
   preload sandbox (`sandbox: false`, while still keeping contextIsolation enabled).
+  
+  
+---
+
+## LaTex Examples
+
+行内公式：$E = mc^2$
+
+块级公式：
+$$
+\int_{-\infty}^{\infty} e^{-x^2} \, dx = \sqrt{\pi}
+$$
+
+更复杂的例子：
+$$
+\begin{cases}
+\nabla \cdot \mathbf{E} = \frac{\rho}{\varepsilon_0} \\[2ex]
+\nabla \cdot \mathbf{B} = 0 \\[2ex]
+\nabla \times \mathbf{E} = -\frac{\partial \mathbf{B}}{\partial t} \\[2ex]
+\nabla \times \mathbf{B} = \mu_0 \mathbf{J} + \mu_0 \varepsilon_0 \frac{\partial \mathbf{E}}{\partial t}
+\end{cases}
+$$
+
+

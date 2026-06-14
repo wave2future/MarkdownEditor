@@ -1,4 +1,5 @@
 const { contextBridge, ipcRenderer } = require('electron');
+const { pathToFileURL } = require('url');
 // 在 preload 里加载 highlight.js（渲染进程关闭了 nodeIntegration），common 子集覆盖约 40 种常用语言
 const hljs = require('highlight.js/lib/common');
 
@@ -15,6 +16,8 @@ contextBridge.exposeInMainWorld('api', {
   onDocLoad: (cb) => ipcRenderer.on('doc:load', (event, data) => cb(data)),
   onMenu: (cb) => ipcRenderer.on('menu', (event, action) => cb(action)),
   onSaveThenClose: (cb) => ipcRenderer.on('app:save-then-close', () => cb()),
+  // 把文档的绝对路径转成 file:// URL，渲染进程用它解析 Markdown 里的相对图片路径
+  pathToFileUrl: (p) => pathToFileURL(p).href,
   highlight: (code, lang) => {
     try {
       if (lang && hljs.getLanguage(lang)) {

@@ -46,3 +46,5 @@ body.markdown-body {
 .markdown-body img { max-width: 100%; }
 .markdown-body hr { border: none; border-top: 2px solid #d8dee4; margin: 20px 0; }
 .markdown-body a { color: #0969da; }
+.markdown-body .katex-display { overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
+.markdown-body .math-error { color: #cf222e; }

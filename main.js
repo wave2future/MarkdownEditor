@@ -1,5 +1,6 @@
 const { app, BrowserWindow, dialog, ipcMain, Menu } = require('electron');
 const path = require('path');
+const { pathToFileURL } = require('url');
 const os = require('os');
 const fs = require('fs/promises');
 const LOCALES = require('./locales');
@@ -176,10 +177,16 @@ function escapeHtml(s) {
 }
 
 async function buildExportHtml(bodyHtml, title) {
-  const [mdCss, hljsCss] = await Promise.all([
+  const katexDir = path.join(__dirname, 'node_modules', 'katex', 'dist');
+  const [mdCss, hljsCss, katexCssRaw] = await Promise.all([
     fs.readFile(path.join(__dirname, 'renderer', 'export.css'), 'utf-8'),
-    fs.readFile(path.join(__dirname, 'node_modules', 'highlight.js', 'styles', 'github.css'), 'utf-8')
+    fs.readFile(path.join(__dirname, 'node_modules', 'highlight.js', 'styles', 'github.css'), 'utf-8'),
+    fs.readFile(path.join(katexDir, 'katex.min.css'), 'utf-8')
   ]);
+  // KaTeX 字体在样式里是相对路径 url(fonts/...)，导出的 HTML 不在 katex 目录下，
+  // 改写成指向 node_modules 的绝对 file:// 路径，PDF/HTML 才能加载字体
+  const fontsUrl = pathToFileURL(path.join(katexDir, 'fonts')).href;
+  const katexCss = katexCssRaw.replace(/url\(fonts\//g, `url(${fontsUrl}/`);
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -187,6 +194,7 @@ async function buildExportHtml(bodyHtml, title) {
 <title>${escapeHtml(title)}</title>
 <style>
 ${hljsCss}
+${katexCss}
 ${mdCss}
 </style>
 </head>

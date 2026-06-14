@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="../node_modules/codemirror/theme/material-darker.css">
   <link rel="stylesheet" id="hljs-light" href="../node_modules/highlight.js/styles/github.css">
   <link rel="stylesheet" id="hljs-dark" href="../node_modules/highlight.js/styles/github-dark.css" disabled>
+  <link rel="stylesheet" href="../node_modules/katex/dist/katex.min.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -57,6 +58,7 @@
 
   <div id="main" class="mode-split">
     <div id="editor-host"></div>
+    <div id="splitter"></div>
     <div id="preview" class="markdown-body"></div>
   </div>
 
@@ -73,6 +75,7 @@
   <script src="../node_modules/codemirror/addon/display/placeholder.js"></script>
   <script src="../node_modules/codemirror/addon/edit/continuelist.js"></script>
   <script src="../node_modules/marked/lib/marked.umd.js"></script>
+  <script src="../node_modules/katex/dist/katex.min.js"></script>
   <script src="../locales.js"></script>
   <script src="app.js"></script>
 </body>

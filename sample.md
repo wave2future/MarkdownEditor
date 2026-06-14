@@ -32,3 +32,13 @@ def fibonacci(n):
 |---------|--------|
 | Editor  | ✓      |
 | Preview | ✓      |
+
+## Math (KaTeX)
+
+Inline math: the quadratic equation $ax^2 + bx + c = 0$ has solutions $x_1$ and $x_2$.
+
+Display math:
+
+$$x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$$
+
+Currency like $5 and $10 stays as plain text.
