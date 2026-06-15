@@ -2,7 +2,7 @@
 
 A clean, cross-platform (Windows / macOS) Markdown editor built on Electron.
 
-## Requirements
+## Requirements Prompt
 
 > Develop a Markdown editor that works on both Windows and Mac, supporting Markdown content editing, Markdown preview, and file open/save functions. Double-clicking a .md file in the system should open it directly in this app. The interface should be clean and simple.
 >
@@ -70,26 +70,20 @@ Technical notes:
 - The preload script needs `require('highlight.js')`, so the window disables Electron's default
   preload sandbox (`sandbox: false`, while still keeping contextIsolation enabled).
   
-  
+
+## Screenshots
+
+![screenshots](./screenshots/1.png)
+
+![screenshots](./screenshots/2.png)
+
+![screenshots](./screenshots/3.png)
+
+![screenshots](./screenshots/4.png)
+
 ---
 
-## LaTex Examples
+## 📄 License
 
-行内公式：$E = mc^2$
-
-块级公式：
-$$
-\int_{-\infty}^{\infty} e^{-x^2} \, dx = \sqrt{\pi}
-$$
-
-更复杂的例子：
-$$
-\begin{cases}
-\nabla \cdot \mathbf{E} = \frac{\rho}{\varepsilon_0} \\[2ex]
-\nabla \cdot \mathbf{B} = 0 \\[2ex]
-\nabla \times \mathbf{E} = -\frac{\partial \mathbf{B}}{\partial t} \\[2ex]
-\nabla \times \mathbf{B} = \mu_0 \mathbf{J} + \mu_0 \varepsilon_0 \frac{\partial \mathbf{E}}{\partial t}
-\end{cases}
-$$
-
+MIT — use it freely for both perosnal or commercial.
 

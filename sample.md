@@ -42,3 +42,26 @@ Display math:
 $$x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$$
 
 Currency like $5 and $10 stays as plain text.
+
+
+  
+---
+
+## LaTex Examples
+
+Inline formulas：$E = mc^2$
+
+Block-level formulas：
+$$
+\int_{-\infty}^{\infty} e^{-x^2} \, dx = \sqrt{\pi}
+$$
+
+More complex examples：
+$$
+\begin{cases}
+\nabla \cdot \mathbf{E} = \frac{\rho}{\varepsilon_0} \\[2ex]
+\nabla \cdot \mathbf{B} = 0 \\[2ex]
+\nabla \times \mathbf{E} = -\frac{\partial \mathbf{B}}{\partial t} \\[2ex]
+\nabla \times \mathbf{B} = \mu_0 \mathbf{J} + \mu_0 \varepsilon_0 \frac{\partial \mathbf{E}}{\partial t}
+\end{cases}
+$$

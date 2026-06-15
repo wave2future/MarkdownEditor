@@ -2,7 +2,7 @@
 
 简洁的跨平台（Windows / macOS）Markdown 编辑器，基于 Electron。
 
-## 需求
+## 需求提示词
 
 > 开发一个跨Windows和Mac平台的Markdown格式编辑器，支持编辑Markdown格式内容，Markdown格式文件预览，文件打开、保存等功能，md格式文件双击系统可以直接打开本软件打开对应的Markdown格式文件。界面简洁。
 > 
@@ -67,24 +67,14 @@ sample.md            测试文档
 - preload 需要 `require('highlight.js')`，因此窗口关闭了 Electron 默认的 preload 沙箱
   （`sandbox: false`，仍保持 contextIsolation）。
   
----
 
-## LaTex 例子
+## Screenshots
 
-行内公式：$E = mc^2$
+![screenshots](./screenshots/1.png)
 
-块级公式：
-$$
-\int_{-\infty}^{\infty} e^{-x^2} \, dx = \sqrt{\pi}
-$$
+![screenshots](./screenshots/2.png)
 
-更复杂的例子：
-$$
-\begin{cases}
-\nabla \cdot \mathbf{E} = \frac{\rho}{\varepsilon_0} \\[2ex]
-\nabla \cdot \mathbf{B} = 0 \\[2ex]
-\nabla \times \mathbf{E} = -\frac{\partial \mathbf{B}}{\partial t} \\[2ex]
-\nabla \times \mathbf{B} = \mu_0 \mathbf{J} + \mu_0 \varepsilon_0 \frac{\partial \mathbf{E}}{\partial t}
-\end{cases}
-$$
+![screenshots](./screenshots/3.png)
+
+![screenshots](./screenshots/4.png)
 
