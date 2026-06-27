@@ -9,7 +9,7 @@
     "dist": "electron-builder",
     "dist:win": "electron-builder --win",
     "dist:mac": "electron-builder --mac",
-    "release:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1"
+    "release:win": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1"
   },
   "build": {
     "appId": "com.gg.markdowneditor",

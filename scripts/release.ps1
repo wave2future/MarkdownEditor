@@ -19,6 +19,21 @@ param(
 $ErrorActionPreference = 'Stop'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
+# git writes normal progress to stderr; under -ErrorActionPreference Stop that would
+# be treated as a terminating error. Run git here and judge success by exit code only.
+function Invoke-Git {
+  param([Parameter(ValueFromRemainingArguments = $true)] [string[]] $GitArgs)
+  $old = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    & git @GitArgs 2>&1 | ForEach-Object { Write-Host $_ }
+    $code = $LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $old
+  }
+  if ($code -ne 0) { throw "git $($GitArgs -join ' ') failed (exit $code)" }
+}
+
 # Move to repo root (this script lives in scripts/)
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
@@ -51,11 +66,12 @@ Write-Host ("Installer: {0} ({1} MB)" -f $installer, [math]::Round((Get-Item $in
 # ---- Create and push the tag (skip if it already exists) ----
 git rev-parse -q --verify "refs/tags/$tag" *> $null
 if ($LASTEXITCODE -ne 0) {
-  git tag -a $tag -m "Markdown Editor $tag"
+  Invoke-Git tag -a $tag -m "Markdown Editor $tag"
 }
-git push origin $tag 2>&1 | Out-Host
+Invoke-Git push origin $tag
 
-# ---- Read the GitHub token (never printed) ----
+# ---- Read the GitHub token from Git Credential Manager (never printed) ----
+# Requires PowerShell 7+ (pwsh); see the launcher in package.json's release:win.
 $lines = "protocol=https`nhost=github.com`n`n" | git credential fill
 $token = ($lines | Select-String '^password=' | Select-Object -First 1).ToString() -replace '^password=',''
 if (-not $token) { throw "No GitHub token from credential manager (run 'git push' once to log in)" }
