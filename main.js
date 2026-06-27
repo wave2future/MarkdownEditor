@@ -238,7 +238,33 @@ function escapeHtml(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-async function buildExportHtml(bodyHtml, title) {
+// 打印预览窗口顶部的工具条（打印 / 关闭按钮 + Ctrl+P / Esc 快捷键），打印时通过 @media print 隐藏
+function printPreviewChrome() {
+  const ui = t().ui;
+  return `<style>
+#print-bar{position:fixed;top:0;left:0;right:0;z-index:1000;display:flex;gap:8px;justify-content:flex-end;
+  padding:8px 16px;background:#f6f8fa;border-bottom:1px solid #d0d7de;
+  font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;}
+#print-bar button{padding:6px 18px;font-size:14px;border:1px solid #d0d7de;border-radius:6px;
+  background:#fff;color:#24292f;cursor:pointer;}
+#print-bar button:hover{background:#eaecef;}
+#print-bar .primary{background:#0969da;border-color:#0969da;color:#fff;}
+body.markdown-body{padding-top:60px;}
+@media print{#print-bar{display:none;}body.markdown-body{padding-top:0;}}
+</style>
+<div id="print-bar">
+  <button class="primary" onclick="window.print()">${escapeHtml(ui.print)}</button>
+  <button onclick="window.close()">${escapeHtml(ui.close)}</button>
+</div>
+<script>
+document.addEventListener('keydown', function (e) {
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) { e.preventDefault(); window.print(); }
+  else if (e.key === 'Escape') { window.close(); }
+});
+</script>`;
+}
+
+async function buildExportHtml(bodyHtml, title, previewChrome = false) {
   const katexDir = path.join(__dirname, 'node_modules', 'katex', 'dist');
   const [mdCss, hljsCss, katexCssRaw] = await Promise.all([
     fs.readFile(path.join(__dirname, 'renderer', 'export.css'), 'utf-8'),
@@ -261,6 +287,7 @@ ${mdCss}
 </style>
 </head>
 <body class="markdown-body">
+${previewChrome ? printPreviewChrome() : ''}
 ${bodyHtml}
 </body>
 </html>`;
@@ -311,30 +338,26 @@ ipcMain.handle('export:pdf', async (event, bodyHtml, title, suggestedName) => {
 });
 
 ipcMain.handle('doc:print', async (event, bodyHtml, title) => {
-  // 与 PDF 导出同一套排版（固定浅色、代码高亮、公式），载入隐藏窗口后弹出系统打印对话框
+  // 打开可见的预览窗口（与导出同一套排版），由页面内的"打印"按钮触发 window.print()。
+  // 这样用户能先预览，取消打印也不会报错。
   const tmpFile = path.join(os.tmpdir(), `md-print-${Date.now()}.html`);
-  let printWindow = null;
   try {
-    await fs.writeFile(tmpFile, await buildExportHtml(bodyHtml, title), 'utf-8');
-    printWindow = new BrowserWindow({ show: false });
-    await printWindow.loadFile(tmpFile);
-    await new Promise((resolve, reject) => {
-      printWindow.webContents.print({ printBackground: true }, (success, failureReason) => {
-        // 用户取消打印不算错误
-        if (!success && failureReason && failureReason !== 'cancelled') {
-          reject(new Error(failureReason));
-        } else {
-          resolve();
-        }
-      });
+    await fs.writeFile(tmpFile, await buildExportHtml(bodyHtml, title, true), 'utf-8');
+    const previewWindow = new BrowserWindow({
+      width: 900,
+      height: 1000,
+      title,
+      autoHideMenuBar: true,
+      backgroundColor: '#ffffff'
     });
+    previewWindow.setMenu(null); // 去掉本窗口的应用菜单，让 Ctrl+P 走页面内的处理而非主窗口
+    await previewWindow.loadFile(tmpFile);
+    fs.unlink(tmpFile).catch(() => {}); // 内容已载入内存，临时文件可删
     return true;
   } catch (err) {
     dialog.showErrorBox(t().dialog.exportFailed, err.message);
-    return false;
-  } finally {
-    if (printWindow) printWindow.destroy();
     fs.unlink(tmpFile).catch(() => {});
+    return false;
   }
 });
 

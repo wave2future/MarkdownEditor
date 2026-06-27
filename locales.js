@@ -23,7 +23,7 @@ const LOCALES = {
       new: 'New', open: 'Open', save: 'Save', saveAs: 'Save As',
       exportHtml: 'Export HTML', exportPdf: 'Export PDF', print: 'Print',
       edit: 'Editor', split: 'Split', preview: 'Preview',
-      language: 'Language', theme: 'Theme',
+      language: 'Language', theme: 'Theme', close: 'Close',
       themeSystem: 'System', themeLight: 'Light', themeDark: 'Dark',
       exported: 'Exported to {path}'
     }
@@ -51,7 +51,7 @@ const LOCALES = {
       new: '新建', open: '打开', save: '保存', saveAs: '另存为',
       exportHtml: '导出 HTML', exportPdf: '导出 PDF', print: '打印',
       edit: '编辑', split: '分屏', preview: '预览',
-      language: '语言', theme: '主题',
+      language: '语言', theme: '主题', close: '关闭',
       themeSystem: '跟随系统', themeLight: '浅色', themeDark: '深色',
       exported: '已导出到 {path}'
     }
@@ -79,7 +79,7 @@ const LOCALES = {
       new: '新規', open: '開く', save: '保存', saveAs: '名前を付けて保存',
       exportHtml: 'HTML エクスポート', exportPdf: 'PDF エクスポート', print: '印刷',
       edit: '編集', split: '分割', preview: 'プレビュー',
-      language: '言語', theme: 'テーマ',
+      language: '言語', theme: 'テーマ', close: '閉じる',
       themeSystem: 'システム', themeLight: 'ライト', themeDark: 'ダーク',
       exported: '{path} にエクスポートしました'
     }
@@ -107,7 +107,7 @@ const LOCALES = {
       new: 'Nouveau', open: 'Ouvrir', save: 'Enregistrer', saveAs: 'Enregistrer sous',
       exportHtml: 'Exporter HTML', exportPdf: 'Exporter PDF', print: 'Imprimer',
       edit: 'Éditeur', split: 'Partagé', preview: 'Aperçu',
-      language: 'Langue', theme: 'Thème',
+      language: 'Langue', theme: 'Thème', close: 'Fermer',
       themeSystem: 'Système', themeLight: 'Clair', themeDark: 'Sombre',
       exported: 'Exporté vers {path}'
     }
@@ -135,7 +135,7 @@ const LOCALES = {
       new: '새 문서', open: '열기', save: '저장', saveAs: '다른 이름으로 저장',
       exportHtml: 'HTML 내보내기', exportPdf: 'PDF 내보내기', print: '인쇄',
       edit: '편집', split: '분할', preview: '미리보기',
-      language: '언어', theme: '테마',
+      language: '언어', theme: '테마', close: '닫기',
       themeSystem: '시스템', themeLight: '라이트', themeDark: '다크',
       exported: '{path}(으)로 내보냈습니다'
     }
@@ -163,7 +163,7 @@ const LOCALES = {
       new: 'Neu', open: 'Öffnen', save: 'Speichern', saveAs: 'Speichern unter',
       exportHtml: 'HTML exportieren', exportPdf: 'PDF exportieren', print: 'Drucken',
       edit: 'Editor', split: 'Geteilt', preview: 'Vorschau',
-      language: 'Sprache', theme: 'Design',
+      language: 'Sprache', theme: 'Design', close: 'Schließen',
       themeSystem: 'System', themeLight: 'Hell', themeDark: 'Dunkel',
       exported: 'Exportiert nach {path}'
     }
