@@ -1,6 +1,6 @@
 {
   "name": "markdown-editor",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Simple and Elegant Markdown Editor",
   "main": "main.js",
   "license": "MIT",
@@ -8,7 +8,8 @@
     "start": "electron .",
     "dist": "electron-builder",
     "dist:win": "electron-builder --win",
-    "dist:mac": "electron-builder --mac"
+    "dist:mac": "electron-builder --mac",
+    "release:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1"
   },
   "build": {
     "appId": "com.gg.markdowneditor",
@@ -28,16 +29,20 @@
       }
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "perMachine": false
+      "perMachine": false,
+      "artifactName": "${productName} Setup ${version} Windows.${ext}"
     },
     "mac": {
       "category": "public.app-category.productivity",
-      "target": "dmg"
+      "target": "dmg",
+      "icon": "build/icon.png",
+      "artifactName": "${productName} ${version} Mac.${ext}"
     },
     "files": [
       "main.js",

@@ -87,6 +87,8 @@ function createWindow() {
     height: 800,
     minWidth: 600,
     minHeight: 400,
+    icon: path.join(__dirname, 'build', 'icon.png'), // 开发模式下的任务栏图标；打包后用 exe 内嵌图标
+
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
