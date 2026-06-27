@@ -5,6 +5,8 @@ const LOCALES = {
     menu: {
       file: 'File', new: 'New', open: 'Open…', save: 'Save', saveAs: 'Save As…',
       exportHtml: 'Export as HTML…', exportPdf: 'Export as PDF…', quit: 'Quit',
+      openRecent: 'Open Recent', clearRecent: 'Clear Recently Opened', noRecent: 'No Recent Files',
+      print: 'Print…',
       edit: 'Edit', undo: 'Undo', redo: 'Redo', cut: 'Cut', copy: 'Copy',
       paste: 'Paste', selectAll: 'Select All',
       view: 'View', editOnly: 'Editor Only', split: 'Split', previewOnly: 'Preview Only',
@@ -19,7 +21,7 @@ const LOCALES = {
     ui: {
       untitled: 'Untitled', chars: '{n} characters', placeholder: 'Type Markdown here…',
       new: 'New', open: 'Open', save: 'Save', saveAs: 'Save As',
-      exportHtml: 'Export HTML', exportPdf: 'Export PDF',
+      exportHtml: 'Export HTML', exportPdf: 'Export PDF', print: 'Print',
       edit: 'Editor', split: 'Split', preview: 'Preview',
       language: 'Language', theme: 'Theme',
       themeSystem: 'System', themeLight: 'Light', themeDark: 'Dark',
@@ -31,6 +33,8 @@ const LOCALES = {
     menu: {
       file: '文件', new: '新建', open: '打开…', save: '保存', saveAs: '另存为…',
       exportHtml: '导出 HTML…', exportPdf: '导出 PDF…', quit: '退出',
+      openRecent: '最近打开', clearRecent: '清除最近打开', noRecent: '无最近文件',
+      print: '打印…',
       edit: '编辑', undo: '撤销', redo: '重做', cut: '剪切', copy: '复制',
       paste: '粘贴', selectAll: '全选',
       view: '视图', editOnly: '仅编辑', split: '分屏', previewOnly: '仅预览',
@@ -45,7 +49,7 @@ const LOCALES = {
     ui: {
       untitled: '未命名', chars: '{n} 字', placeholder: '在这里输入 Markdown 内容…',
       new: '新建', open: '打开', save: '保存', saveAs: '另存为',
-      exportHtml: '导出 HTML', exportPdf: '导出 PDF',
+      exportHtml: '导出 HTML', exportPdf: '导出 PDF', print: '打印',
       edit: '编辑', split: '分屏', preview: '预览',
       language: '语言', theme: '主题',
       themeSystem: '跟随系统', themeLight: '浅色', themeDark: '深色',
@@ -57,6 +61,8 @@ const LOCALES = {
     menu: {
       file: 'ファイル', new: '新規', open: '開く…', save: '保存', saveAs: '名前を付けて保存…',
       exportHtml: 'HTML をエクスポート…', exportPdf: 'PDF をエクスポート…', quit: '終了',
+      openRecent: '最近使った項目', clearRecent: '最近使った項目をクリア', noRecent: '最近のファイルなし',
+      print: '印刷…',
       edit: '編集', undo: '元に戻す', redo: 'やり直し', cut: '切り取り', copy: 'コピー',
       paste: '貼り付け', selectAll: 'すべて選択',
       view: '表示', editOnly: '編集のみ', split: '分割', previewOnly: 'プレビューのみ',
@@ -71,7 +77,7 @@ const LOCALES = {
     ui: {
       untitled: '無題', chars: '{n} 文字', placeholder: 'ここに Markdown を入力…',
       new: '新規', open: '開く', save: '保存', saveAs: '名前を付けて保存',
-      exportHtml: 'HTML エクスポート', exportPdf: 'PDF エクスポート',
+      exportHtml: 'HTML エクスポート', exportPdf: 'PDF エクスポート', print: '印刷',
       edit: '編集', split: '分割', preview: 'プレビュー',
       language: '言語', theme: 'テーマ',
       themeSystem: 'システム', themeLight: 'ライト', themeDark: 'ダーク',
@@ -83,6 +89,8 @@ const LOCALES = {
     menu: {
       file: 'Fichier', new: 'Nouveau', open: 'Ouvrir…', save: 'Enregistrer', saveAs: 'Enregistrer sous…',
       exportHtml: 'Exporter en HTML…', exportPdf: 'Exporter en PDF…', quit: 'Quitter',
+      openRecent: 'Ouvrir un élément récent', clearRecent: 'Effacer les éléments récents', noRecent: 'Aucun fichier récent',
+      print: 'Imprimer…',
       edit: 'Édition', undo: 'Annuler', redo: 'Rétablir', cut: 'Couper', copy: 'Copier',
       paste: 'Coller', selectAll: 'Tout sélectionner',
       view: 'Affichage', editOnly: 'Éditeur seul', split: 'Partagé', previewOnly: 'Aperçu seul',
@@ -97,7 +105,7 @@ const LOCALES = {
     ui: {
       untitled: 'Sans titre', chars: '{n} caractères', placeholder: 'Saisissez du Markdown ici…',
       new: 'Nouveau', open: 'Ouvrir', save: 'Enregistrer', saveAs: 'Enregistrer sous',
-      exportHtml: 'Exporter HTML', exportPdf: 'Exporter PDF',
+      exportHtml: 'Exporter HTML', exportPdf: 'Exporter PDF', print: 'Imprimer',
       edit: 'Éditeur', split: 'Partagé', preview: 'Aperçu',
       language: 'Langue', theme: 'Thème',
       themeSystem: 'Système', themeLight: 'Clair', themeDark: 'Sombre',
@@ -109,6 +117,8 @@ const LOCALES = {
     menu: {
       file: '파일', new: '새 문서', open: '열기…', save: '저장', saveAs: '다른 이름으로 저장…',
       exportHtml: 'HTML 내보내기…', exportPdf: 'PDF 내보내기…', quit: '종료',
+      openRecent: '최근 항목 열기', clearRecent: '최근 항목 지우기', noRecent: '최근 파일 없음',
+      print: '인쇄…',
       edit: '편집', undo: '실행 취소', redo: '다시 실행', cut: '잘라내기', copy: '복사',
       paste: '붙여넣기', selectAll: '모두 선택',
       view: '보기', editOnly: '편집만', split: '분할', previewOnly: '미리보기만',
@@ -123,7 +133,7 @@ const LOCALES = {
     ui: {
       untitled: '제목 없음', chars: '{n}자', placeholder: '여기에 Markdown을 입력하세요…',
       new: '새 문서', open: '열기', save: '저장', saveAs: '다른 이름으로 저장',
-      exportHtml: 'HTML 내보내기', exportPdf: 'PDF 내보내기',
+      exportHtml: 'HTML 내보내기', exportPdf: 'PDF 내보내기', print: '인쇄',
       edit: '편집', split: '분할', preview: '미리보기',
       language: '언어', theme: '테마',
       themeSystem: '시스템', themeLight: '라이트', themeDark: '다크',
@@ -135,6 +145,8 @@ const LOCALES = {
     menu: {
       file: 'Datei', new: 'Neu', open: 'Öffnen…', save: 'Speichern', saveAs: 'Speichern unter…',
       exportHtml: 'Als HTML exportieren…', exportPdf: 'Als PDF exportieren…', quit: 'Beenden',
+      openRecent: 'Zuletzt verwendet öffnen', clearRecent: 'Zuletzt verwendete löschen', noRecent: 'Keine letzten Dateien',
+      print: 'Drucken…',
       edit: 'Bearbeiten', undo: 'Rückgängig', redo: 'Wiederholen', cut: 'Ausschneiden', copy: 'Kopieren',
       paste: 'Einfügen', selectAll: 'Alles auswählen',
       view: 'Ansicht', editOnly: 'Nur Editor', split: 'Geteilt', previewOnly: 'Nur Vorschau',
@@ -149,7 +161,7 @@ const LOCALES = {
     ui: {
       untitled: 'Unbenannt', chars: '{n} Zeichen', placeholder: 'Markdown hier eingeben…',
       new: 'Neu', open: 'Öffnen', save: 'Speichern', saveAs: 'Speichern unter',
-      exportHtml: 'HTML exportieren', exportPdf: 'PDF exportieren',
+      exportHtml: 'HTML exportieren', exportPdf: 'PDF exportieren', print: 'Drucken',
       edit: 'Editor', split: 'Geteilt', preview: 'Vorschau',
       language: 'Sprache', theme: 'Design',
       themeSystem: 'System', themeLight: 'Hell', themeDark: 'Dunkel',

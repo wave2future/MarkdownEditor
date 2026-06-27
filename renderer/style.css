@@ -106,11 +106,101 @@ body {
 
 .spacer { flex: 1; }
 
+/* ---- 标签栏（多文件） ---- */
+#tabbar {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 4px 8px 0;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  padding: 5px 8px 5px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.tab:hover { background: var(--btn-hover); }
+
+.tab.active {
+  color: var(--text);
+  background: var(--bg);
+  border-color: var(--border);
+}
+
+.tab-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.tab-close:hover { background: var(--btn-hover); color: var(--text); }
+.tab.active .tab-close:hover { background: var(--btn-hover); }
+
+.tab-add {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 24px;
+  height: 24px;
+  margin-left: 2px;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.tab-add:hover { background: var(--btn-hover); color: var(--text); }
+
 /* ---- 主区域 ---- */
 #main {
   flex: 1;
   display: flex;
   min-height: 0;
+  position: relative;
+}
+
+/* 拖放文件到窗口时的高亮提示（覆盖整个编辑/预览区） */
+body.drag-over #main::after {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  z-index: 20;
+  pointer-events: none;
+  border: 2px dashed var(--accent);
+  border-radius: 8px;
+  background: var(--btn-hover);
+  opacity: .55;
 }
 
 #editor-host {

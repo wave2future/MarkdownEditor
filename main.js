@@ -15,6 +15,48 @@ let currentLang = 'en';
 
 const t = () => LOCALES[currentLang] || LOCALES.en;
 
+// ---- 最近打开的文件 ----
+let recentFiles = [];
+const RECENT_MAX = 10;
+const recentStorePath = () => path.join(app.getPath('userData'), 'recent.json');
+
+async function loadRecent() {
+  try {
+    const arr = JSON.parse(await fs.readFile(recentStorePath(), 'utf-8'));
+    if (Array.isArray(arr)) recentFiles = arr.filter((p) => typeof p === 'string');
+  } catch {
+    // 首次运行没有该文件，或内容损坏，忽略即可
+  }
+}
+
+function saveRecent() {
+  fs.writeFile(recentStorePath(), JSON.stringify(recentFiles), 'utf-8').catch(() => {});
+}
+
+function addRecent(filePath) {
+  if (!filePath) return;
+  recentFiles = recentFiles.filter((p) => p !== filePath); // 已存在则提到最前
+  recentFiles.unshift(filePath);
+  if (recentFiles.length > RECENT_MAX) recentFiles.length = RECENT_MAX;
+  saveRecent();
+  buildMenu();
+}
+
+function removeRecent(filePath) {
+  const before = recentFiles.length;
+  recentFiles = recentFiles.filter((p) => p !== filePath);
+  if (recentFiles.length !== before) {
+    saveRecent();
+    buildMenu();
+  }
+}
+
+function clearRecent() {
+  recentFiles = [];
+  saveRecent();
+  buildMenu();
+}
+
 function fileFromArgv(argv) {
   // 跳过可执行文件本身和 electron 开发模式下的 "."
   for (const arg of argv.slice(1)) {
@@ -32,8 +74,10 @@ async function loadFileIntoWindow(filePath) {
   try {
     const content = await fs.readFile(filePath, 'utf-8');
     mainWindow.webContents.send('doc:load', { filePath, content });
+    addRecent(filePath);
   } catch (err) {
     dialog.showErrorBox(t().dialog.openFailed, `${filePath}\n${err.message}`);
+    removeRecent(filePath); // 文件已被移动/删除，从最近列表清掉
   }
 }
 
@@ -85,6 +129,20 @@ function createWindow() {
   });
 }
 
+function buildRecentSubmenu() {
+  const m = t().menu;
+  if (recentFiles.length === 0) {
+    return [{ label: m.noRecent, enabled: false }];
+  }
+  const items = recentFiles.map((filePath) => ({
+    label: filePath,
+    click: () => loadFileIntoWindow(filePath)
+  }));
+  items.push({ type: 'separator' });
+  items.push({ label: m.clearRecent, click: () => clearRecent() });
+  return items;
+}
+
 function buildMenu() {
   const m = t().menu;
   const send = (action) => mainWindow && mainWindow.webContents.send('menu', action);
@@ -94,12 +152,15 @@ function buildMenu() {
       submenu: [
         { label: m.new, accelerator: 'CmdOrCtrl+N', click: () => send('new') },
         { label: m.open, accelerator: 'CmdOrCtrl+O', click: () => send('open') },
+        { label: m.openRecent, submenu: buildRecentSubmenu() },
         { type: 'separator' },
         { label: m.save, accelerator: 'CmdOrCtrl+S', click: () => send('save') },
         { label: m.saveAs, accelerator: 'CmdOrCtrl+Shift+S', click: () => send('save-as') },
         { type: 'separator' },
         { label: m.exportHtml, accelerator: 'CmdOrCtrl+E', click: () => send('export-html') },
         { label: m.exportPdf, accelerator: 'CmdOrCtrl+Shift+E', click: () => send('export-pdf') },
+        { type: 'separator' },
+        { label: m.print, accelerator: 'CmdOrCtrl+P', click: () => send('print') },
         { type: 'separator' },
         { role: 'quit', label: m.quit }
       ]
@@ -157,7 +218,8 @@ if (!gotLock) {
   // Windows：首次启动时文件路径在命令行参数里
   pendingOpenPath = fileFromArgv(process.argv);
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
+    await loadRecent();
     createWindow();
     buildMenu();
     app.on('activate', () => {
@@ -248,6 +310,34 @@ ipcMain.handle('export:pdf', async (event, bodyHtml, title, suggestedName) => {
   }
 });
 
+ipcMain.handle('doc:print', async (event, bodyHtml, title) => {
+  // 与 PDF 导出同一套排版（固定浅色、代码高亮、公式），载入隐藏窗口后弹出系统打印对话框
+  const tmpFile = path.join(os.tmpdir(), `md-print-${Date.now()}.html`);
+  let printWindow = null;
+  try {
+    await fs.writeFile(tmpFile, await buildExportHtml(bodyHtml, title), 'utf-8');
+    printWindow = new BrowserWindow({ show: false });
+    await printWindow.loadFile(tmpFile);
+    await new Promise((resolve, reject) => {
+      printWindow.webContents.print({ printBackground: true }, (success, failureReason) => {
+        // 用户取消打印不算错误
+        if (!success && failureReason && failureReason !== 'cancelled') {
+          reject(new Error(failureReason));
+        } else {
+          resolve();
+        }
+      });
+    });
+    return true;
+  } catch (err) {
+    dialog.showErrorBox(t().dialog.exportFailed, err.message);
+    return false;
+  } finally {
+    if (printWindow) printWindow.destroy();
+    fs.unlink(tmpFile).catch(() => {});
+  }
+});
+
 // ---- IPC ----
 
 ipcMain.on('settings:lang', (event, lang) => {
@@ -268,7 +358,20 @@ ipcMain.handle('file:open', async () => {
   if (result.canceled || result.filePaths.length === 0) return null;
   const filePath = result.filePaths[0];
   const content = await fs.readFile(filePath, 'utf-8');
+  addRecent(filePath);
   return { filePath, content };
+});
+
+// 拖放打开：渲染进程拿到文件路径后读取内容（路径由 preload 的 webUtils 解析）
+ipcMain.handle('file:read', async (event, filePath) => {
+  try {
+    const content = await fs.readFile(filePath, 'utf-8');
+    addRecent(filePath);
+    return { filePath, content };
+  } catch (err) {
+    dialog.showErrorBox(t().dialog.openFailed, `${filePath}\n${err.message}`);
+    return null;
+  }
 });
 
 ipcMain.handle('file:save', async (event, filePath, content) => {
@@ -283,6 +386,7 @@ ipcMain.handle('file:save-as', async (event, content, suggestedName) => {
   });
   if (result.canceled || !result.filePath) return null;
   await fs.writeFile(result.filePath, content, 'utf-8');
+  addRecent(result.filePath);
   return result.filePath;
 });
 
