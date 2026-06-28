@@ -41,8 +41,8 @@ Set-Location $root
 # ---- Version and artifact paths ----
 $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
 $tag = "v$version"
-$installer = Join-Path $root "dist\Markdown Editor Setup $version Windows.exe"
-$assetName = "Markdown.Editor.Setup.$version.Windows.exe"   # no spaces -> cleaner download link
+$assetName = "Markdown.Editor.Setup.$version.Windows.exe"   # matches build.nsis.artifactName
+$installer = Join-Path $root "dist\$assetName"
 Write-Host "Releasing $tag" -ForegroundColor Cyan
 
 # ---- Parse owner/repo from the origin remote ----

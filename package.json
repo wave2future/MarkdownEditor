@@ -36,13 +36,13 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "perMachine": false,
-      "artifactName": "${productName} Setup ${version} Windows.${ext}"
+      "artifactName": "Markdown.Editor.Setup.${version}.Windows.${ext}"
     },
     "mac": {
       "category": "public.app-category.productivity",
       "target": "dmg",
       "icon": "build/icon.png",
-      "artifactName": "${productName} ${version} Mac.${ext}"
+      "artifactName": "Markdown.Editor.${version}.Mac.${ext}"
     },
     "files": [
       "main.js",
