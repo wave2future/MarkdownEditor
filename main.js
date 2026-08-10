@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, Menu } = require('electron');
+const { app, BrowserWindow, clipboard, dialog, ipcMain, Menu } = require('electron');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const os = require('os');
@@ -9,6 +9,7 @@ const MD_EXTS = ['.md', '.markdown', '.txt'];
 
 let mainWindow = null;
 let pendingOpenPath = null; // 窗口就绪前收到的待打开文件（双击关联文件）
+let rendererReady = false;
 let isDirty = false;
 let closingAfterSave = false;
 let currentLang = 'en';
@@ -57,6 +58,67 @@ function clearRecent() {
   buildMenu();
 }
 
+// ---- 会话与自动草稿 ----
+// 会话里保存每个 Tab 的完整内容，所以即使渲染进程异常退出，未落盘草稿也能恢复。
+const sessionStorePath = () => path.join(app.getPath('userData'), 'session.json');
+let sessionWriteQueue = Promise.resolve();
+
+function sanitizeSession(value) {
+  if (!value || !Array.isArray(value.tabs) || value.tabs.length === 0) return null;
+  const tabs = value.tabs.slice(0, 100).map((tab) => {
+    const content = typeof tab?.content === 'string' ? tab.content : '';
+    const dirty = !!tab?.dirty;
+    return {
+      filePath: typeof tab?.filePath === 'string' && tab.filePath ? tab.filePath : null,
+      content,
+      savedContent: typeof tab?.savedContent === 'string'
+        ? tab.savedContent
+        : (dirty ? '' : content),
+      dirty
+    };
+  });
+  const activeIndex = Number.isInteger(value.activeIndex)
+    ? Math.max(0, Math.min(value.activeIndex, tabs.length - 1))
+    : 0;
+  return { version: 1, activeIndex, tabs };
+}
+
+async function loadSession() {
+  try {
+    const session = sanitizeSession(JSON.parse(await fs.readFile(sessionStorePath(), 'utf-8')));
+    if (!session) return null;
+
+    // 已保存的文件重新从磁盘读取，未保存的草稿则以自动保存内容为准。
+    await Promise.all(session.tabs.map(async (tab) => {
+      if (!tab.filePath) return;
+      try {
+        const diskContent = await fs.readFile(tab.filePath, 'utf-8');
+        if (!tab.dirty) tab.content = diskContent;
+        tab.savedContent = diskContent;
+      } catch {
+        // 文件在应用关闭期间被移动/删除时，保留缓存副本并标为未保存，避免内容丢失。
+        tab.dirty = true;
+      }
+    }));
+    return session;
+  } catch {
+    return null;
+  }
+}
+
+function saveSession(value) {
+  const session = sanitizeSession(value);
+  if (!session) return Promise.resolve(false);
+  sessionWriteQueue = sessionWriteQueue.catch(() => {}).then(async () => {
+    const target = sessionStorePath();
+    const temp = `${target}.tmp`;
+    await fs.writeFile(temp, JSON.stringify(session), 'utf-8');
+    await fs.rename(temp, target);
+    return true;
+  });
+  return sessionWriteQueue;
+}
+
 function fileFromArgv(argv) {
   // 跳过可执行文件本身和 electron 开发模式下的 "."
   for (const arg of argv.slice(1)) {
@@ -67,7 +129,7 @@ function fileFromArgv(argv) {
 }
 
 async function loadFileIntoWindow(filePath) {
-  if (!mainWindow) {
+  if (!mainWindow || !rendererReady) {
     pendingOpenPath = filePath;
     return;
   }
@@ -82,6 +144,9 @@ async function loadFileIntoWindow(filePath) {
 }
 
 function createWindow() {
+  rendererReady = false;
+  isDirty = false;
+  closingAfterSave = false;
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -100,15 +165,14 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
-  mainWindow.webContents.on('did-finish-load', () => {
-    if (pendingOpenPath) {
-      loadFileIntoWindow(pendingOpenPath);
-      pendingOpenPath = null;
-    }
-  });
-
   mainWindow.on('close', (e) => {
-    if (!isDirty || closingAfterSave) return;
+    if (closingAfterSave) return;
+    e.preventDefault();
+
+    if (!isDirty) {
+      mainWindow.webContents.send('app:prepare-close');
+      return;
+    }
     const d = t().dialog;
     const choice = dialog.showMessageBoxSync(mainWindow, {
       type: 'warning',
@@ -117,13 +181,12 @@ function createWindow() {
       cancelId: 2,
       message: d.unsaved
     });
-    if (choice === 2) {
-      e.preventDefault();
-    } else if (choice === 0) {
-      e.preventDefault();
+    if (choice === 0) {
       mainWindow.webContents.send('app:save-then-close');
+    } else if (choice === 1) {
+      mainWindow.webContents.send('app:discard-then-close');
     }
-    // choice === 1：直接关闭
+    // choice === 2：取消关闭
   });
 
   mainWindow.on('closed', () => {
@@ -174,9 +237,9 @@ function buildMenu() {
         { label: m.undo, accelerator: 'CmdOrCtrl+Z', click: () => send('undo') },
         { label: m.redo, accelerator: 'CmdOrCtrl+Shift+Z', click: () => send('redo') },
         { type: 'separator' },
-        { role: 'cut', label: m.cut },
-        { role: 'copy', label: m.copy },
-        { role: 'paste', label: m.paste },
+        { label: m.cut, accelerator: 'CmdOrCtrl+X', click: () => send('cut') },
+        { label: m.copy, accelerator: 'CmdOrCtrl+C', click: () => send('copy') },
+        { label: m.paste, accelerator: 'CmdOrCtrl+V', click: () => send('paste') },
         { label: m.selectAll, accelerator: 'CmdOrCtrl+A', click: () => send('select-all') }
       ]
     },
@@ -370,6 +433,57 @@ ipcMain.on('settings:lang', (event, lang) => {
     currentLang = lang;
     buildMenu();
   }
+});
+
+ipcMain.handle('session:load', (event) => {
+  if (BrowserWindow.fromWebContents(event.sender) !== mainWindow) return null;
+  return loadSession();
+});
+
+ipcMain.handle('session:save', (event, session) => {
+  if (BrowserWindow.fromWebContents(event.sender) !== mainWindow) return false;
+  return saveSession(session);
+});
+
+ipcMain.on('session:ready', (event) => {
+  if (BrowserWindow.fromWebContents(event.sender) !== mainWindow) return;
+  rendererReady = true;
+  if (pendingOpenPath) {
+    const filePath = pendingOpenPath;
+    pendingOpenPath = null;
+    loadFileIntoWindow(filePath);
+  }
+});
+
+// CodeMirror 的选区不属于普通 input/textarea，Electron 的系统编辑 role 无法稳定操作它。
+// 右键菜单只负责展示和发送命令，实际选区修改由渲染进程中的 CodeMirror 完成。
+ipcMain.on('editor:show-context-menu', (event, state) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || win !== mainWindow) return;
+
+  const m = t().menu;
+  const send = (action) => event.sender.send('menu', action);
+  const menu = Menu.buildFromTemplate([
+    { label: m.undo, enabled: !!state?.canUndo, click: () => send('undo') },
+    { label: m.redo, enabled: !!state?.canRedo, click: () => send('redo') },
+    { type: 'separator' },
+    { label: m.cut, enabled: !!state?.hasSelection, click: () => send('cut') },
+    { label: m.copy, enabled: !!state?.hasSelection, click: () => send('copy') },
+    { label: m.paste, enabled: clipboard.readText().length > 0, click: () => send('paste') },
+    { type: 'separator' },
+    { label: m.selectAll, click: () => send('select-all') }
+  ]);
+  menu.popup({ window: win });
+});
+
+ipcMain.on('clipboard:write-text', (event, text) => {
+  if (BrowserWindow.fromWebContents(event.sender) !== mainWindow) return;
+  clipboard.writeText(String(text));
+});
+
+ipcMain.handle('clipboard:read-text', (event) => {
+  if (BrowserWindow.fromWebContents(event.sender) !== mainWindow) return '';
+  return clipboard.readText();
 });
 
 ipcMain.handle('file:open', async () => {

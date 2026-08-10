@@ -18,9 +18,39 @@ const L = () => LOCALES[lang] || LOCALES.en;
 let tabs = [];
 let activeIndex = -1;
 let tabSeq = 0;
+let restoringSession = false;
+let sessionSaveTimer = null;
 
 function activeTab() {
   return tabs[activeIndex] || null;
+}
+
+function sessionSnapshot() {
+  return {
+    version: 1,
+    activeIndex,
+    tabs: tabs.map((tab) => ({
+      filePath: tab.filePath,
+      content: tab.doc.getValue(),
+      savedContent: tab.savedContent,
+      dirty: tab.dirty
+    }))
+  };
+}
+
+function scheduleSessionSave() {
+  if (restoringSession || tabs.length === 0) return;
+  clearTimeout(sessionSaveTimer);
+  sessionSaveTimer = setTimeout(() => {
+    sessionSaveTimer = null;
+    window.api.saveSession(sessionSnapshot()).catch(() => {});
+  }, 150);
+}
+
+async function persistSessionNow() {
+  clearTimeout(sessionSaveTimer);
+  sessionSaveTimer = null;
+  if (tabs.length > 0) await window.api.saveSession(sessionSnapshot());
 }
 
 // ---- CodeMirror 编辑器 ----
@@ -38,6 +68,50 @@ const cm = CodeMirror(document.getElementById('editor-host'), {
     'Shift-Tab': (cm) => cm.indentSelection('subtract')
   }
 });
+
+function copySelection() {
+  if (!cm.somethingSelected()) return;
+  window.api.writeClipboardText(cm.getSelections().join('\n'));
+  cm.focus();
+}
+
+function cutSelection() {
+  if (!cm.somethingSelected()) return;
+  window.api.writeClipboardText(cm.getSelections().join('\n'));
+  cm.operation(() => {
+    cm.replaceSelections(cm.getSelections().map(() => ''), 'around', '+cut');
+  });
+  cm.focus();
+}
+
+async function pasteClipboard() {
+  const text = await window.api.readClipboardText();
+  cm.operation(() => {
+    cm.replaceSelections(cm.listSelections().map(() => text), 'end', '+paste');
+  });
+  cm.focus();
+}
+
+// 右键点在现有选区内时保留选区；点在选区外时，把光标移到点击位置。
+cm.getWrapperElement().addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  const pos = cm.coordsChar({ left: e.clientX, top: e.clientY }, 'window');
+  const inSelection = cm.listSelections().some((range) => {
+    const from = range.from();
+    const to = range.to();
+    return CodeMirror.cmpPos(from, pos) <= 0 && CodeMirror.cmpPos(pos, to) <= 0 &&
+      CodeMirror.cmpPos(from, to) !== 0;
+  });
+  if (!inSelection) cm.setCursor(pos);
+  cm.focus();
+
+  const history = cm.historySize();
+  window.api.showEditorContextMenu({
+    hasSelection: cm.somethingSelected(),
+    canUndo: history.undo > 0,
+    canRedo: history.redo > 0
+  });
+}, true);
 
 // ---- Markdown 渲染（代码块用 highlight.js 高亮，hljs 在 preload 中加载） ----
 
@@ -227,17 +301,19 @@ function setTabDirty(tab, value) {
   }
   if (tab === activeTab()) updateStatus();
   renderTabs();
+  scheduleSessionSave();
 }
 
-function createTab(filePath, content) {
+function createTab(filePath, content, savedContent = content, dirty = false) {
   const tab = {
     id: ++tabSeq,
     filePath,
     doc: CodeMirror.Doc(content, 'markdown'),
-    savedContent: content,
-    dirty: false
+    savedContent,
+    dirty
   };
   tabs.push(tab);
+  scheduleSessionSave();
   return tab;
 }
 
@@ -251,6 +327,7 @@ function activateTab(index) {
   renderTabs();
   updateStatus();
   cm.focus();
+  scheduleSessionSave();
 }
 
 // 已打开同一文件则直接切过去（保留其中未保存的编辑），否则新建 Tab
@@ -282,6 +359,7 @@ async function closeTab(index) {
     activateTab(Math.min(index, tabs.length - 1));
   }
   syncGlobalDirty();
+  scheduleSessionSave();
 }
 
 function renderTabs() {
@@ -316,6 +394,29 @@ function renderTabs() {
   add.title = L().ui.new;
   add.addEventListener('click', newFile);
   tabbar.appendChild(add);
+}
+
+async function restorePreviousSession() {
+  const session = await window.api.loadSession();
+  if (!session || !Array.isArray(session.tabs) || session.tabs.length === 0) return false;
+
+  restoringSession = true;
+  tabs = [];
+  activeIndex = -1;
+  for (const savedTab of session.tabs) {
+    createTab(
+      savedTab.filePath || null,
+      typeof savedTab.content === 'string' ? savedTab.content : '',
+      typeof savedTab.savedContent === 'string' ? savedTab.savedContent : '',
+      !!savedTab.dirty
+    );
+  }
+  restoringSession = false;
+
+  activateTab(Math.max(0, Math.min(session.activeIndex || 0, tabs.length - 1)));
+  syncGlobalDirty();
+  scheduleSessionSave();
+  return true;
 }
 
 // ---- 编辑状态 ----
@@ -537,6 +638,9 @@ window.api.onMenu((action) => {
     'print': doPrint,
     'undo': () => cm.undo(),
     'redo': () => cm.redo(),
+    'cut': cutSelection,
+    'copy': copySelection,
+    'paste': pasteClipboard,
     'select-all': () => { cm.focus(); cm.execCommand('selectAll'); },
     'view-edit': () => setView('edit'),
     'view-split': () => setView('split'),
@@ -557,11 +661,40 @@ window.api.onSaveThenClose(async () => {
       if (!(await saveFile())) return; // 用户在"另存为"对话框取消，则中止关闭
     }
   }
+  await persistSessionNow();
+  window.api.closeAfterSave();
+});
+
+// 没有未保存修改时，也在真正关窗前等待最后一次会话写入完成。
+window.api.onPrepareClose(async () => {
+  await persistSessionNow();
+  window.api.closeAfterSave();
+});
+
+// 用户明确选择“不保存”时丢弃修改，但保留原来的 Tab 布局供下次启动恢复。
+window.api.onDiscardThenClose(async () => {
+  tabs.forEach((tab) => {
+    if (!tab.dirty) return;
+    tab.doc.setValue(tab.savedContent);
+    tab.dirty = false;
+  });
+  syncGlobalDirty();
+  activateTab(activeIndex);
+  await persistSessionNow();
   window.api.closeAfterSave();
 });
 
 // ---- 初始化 ----
 
-applyTheme();
-newFile();   // 创建并激活第一个空白 Tab（内部会 render）
-applyLang();
+async function initialize() {
+  applyTheme();
+  if (!(await restorePreviousSession())) newFile();
+  applyLang();
+  window.api.sessionReady(); // 会话恢复完毕后，主进程才能安全转发双击打开的文件
+}
+
+initialize().catch(() => {
+  if (tabs.length === 0) newFile();
+  applyLang();
+  window.api.sessionReady();
+});
