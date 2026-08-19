@@ -13,6 +13,9 @@ let rendererReady = false;
 let isDirty = false;
 let closingAfterSave = false;
 let currentLang = 'en';
+const watchedFiles = new Map();
+const filesBeingSaved = new Set();
+let checkingWatchedFiles = false;
 
 const t = () => LOCALES[currentLang] || LOCALES.en;
 
@@ -119,6 +122,68 @@ function saveSession(value) {
   return sessionWriteQueue;
 }
 
+async function fileVersion(filePath) {
+  const stat = await fs.stat(filePath);
+  return { mtimeMs: stat.mtimeMs, ctimeMs: stat.ctimeMs, size: stat.size };
+}
+
+function sameFileVersion(a, b) {
+  return a && b && a.mtimeMs === b.mtimeMs && a.ctimeMs === b.ctimeMs && a.size === b.size;
+}
+
+async function syncWatchedFiles(tabs) {
+  const wantedTabs = tabs.filter((tab) => typeof tab?.filePath === 'string' && tab.filePath);
+  const wanted = new Set(wantedTabs.map((tab) => tab.filePath));
+  for (const filePath of watchedFiles.keys()) {
+    if (!wanted.has(filePath)) watchedFiles.delete(filePath);
+  }
+  await Promise.all(wantedTabs.map(async (tab) => {
+    const filePath = tab.filePath;
+    if (watchedFiles.has(filePath)) return;
+    try {
+      const [version, content] = await Promise.all([fileVersion(filePath), fs.readFile(filePath, 'utf-8')]);
+      watchedFiles.set(filePath, { version, content });
+      if (typeof tab.savedContent === 'string' && content !== tab.savedContent &&
+          mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('file:external-change', { filePath, content });
+      }
+    } catch {
+      // 文件暂时不可访问时留待下一次会话同步。
+    }
+  }));
+}
+
+async function updateWatchedFile(filePath, content) {
+  try {
+    watchedFiles.set(filePath, { version: await fileVersion(filePath), content });
+  } catch {
+    watchedFiles.delete(filePath);
+  }
+}
+
+async function checkWatchedFiles() {
+  if (checkingWatchedFiles || !mainWindow || mainWindow.isDestroyed()) return;
+  checkingWatchedFiles = true;
+  try {
+    await Promise.all(Array.from(watchedFiles, async ([filePath, known]) => {
+      try {
+        if (filesBeingSaved.has(filePath)) return;
+        const version = await fileVersion(filePath);
+        if (sameFileVersion(version, known.version)) return;
+        const content = await fs.readFile(filePath, 'utf-8');
+        watchedFiles.set(filePath, { version, content });
+        if (content !== known.content && mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('file:external-change', { filePath, content });
+        }
+      } catch {
+        // 删除、移动或短暂锁定不属于“内容被修改”，恢复可访问后再继续检测。
+      }
+    }));
+  } finally {
+    checkingWatchedFiles = false;
+  }
+}
+
 function fileFromArgv(argv) {
   // 跳过可执行文件本身和 electron 开发模式下的 "."
   for (const arg of argv.slice(1)) {
@@ -191,6 +256,7 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+    watchedFiles.clear();
   });
 }
 
@@ -287,6 +353,7 @@ if (!gotLock) {
     await loadRecent();
     createWindow();
     buildMenu();
+    setInterval(checkWatchedFiles, 1000);
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });
@@ -442,6 +509,9 @@ ipcMain.handle('session:load', (event) => {
 
 ipcMain.handle('session:save', (event, session) => {
   if (BrowserWindow.fromWebContents(event.sender) !== mainWindow) return false;
+  if (Array.isArray(session?.tabs)) {
+    syncWatchedFiles(session.tabs).catch(() => {});
+  }
   return saveSession(session);
 });
 
@@ -474,6 +544,15 @@ ipcMain.on('editor:show-context-menu', (event, state) => {
     { label: m.selectAll, click: () => send('select-all') }
   ]);
   menu.popup({ window: win });
+});
+
+ipcMain.on('preview:show-context-menu', (event, selectedText) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || win !== mainWindow) return;
+  const text = typeof selectedText === 'string' ? selectedText : '';
+  Menu.buildFromTemplate([
+    { label: t().menu.copy, enabled: text.length > 0, click: () => clipboard.writeText(text) }
+  ]).popup({ window: win });
 });
 
 ipcMain.on('clipboard:write-text', (event, text) => {
@@ -514,8 +593,14 @@ ipcMain.handle('file:read', async (event, filePath) => {
 });
 
 ipcMain.handle('file:save', async (event, filePath, content) => {
-  await fs.writeFile(filePath, content, 'utf-8');
-  return true;
+  filesBeingSaved.add(filePath);
+  try {
+    await fs.writeFile(filePath, content, 'utf-8');
+    await updateWatchedFile(filePath, content);
+    return true;
+  } finally {
+    filesBeingSaved.delete(filePath);
+  }
 });
 
 ipcMain.handle('file:save-as', async (event, content, suggestedName) => {
@@ -525,8 +610,25 @@ ipcMain.handle('file:save-as', async (event, content, suggestedName) => {
   });
   if (result.canceled || !result.filePath) return null;
   await fs.writeFile(result.filePath, content, 'utf-8');
+  await updateWatchedFile(result.filePath, content);
   addRecent(result.filePath);
   return result.filePath;
+});
+
+ipcMain.handle('dialog:external-change', async (event, filePath, hasUnsavedChanges) => {
+  if (BrowserWindow.fromWebContents(event.sender) !== mainWindow) return false;
+  const d = t().dialog;
+  const fileName = path.basename(filePath);
+  const result = await dialog.showMessageBox(mainWindow, {
+    type: 'question',
+    buttons: [d.loadLatest, d.keepCurrent],
+    defaultId: 0,
+    cancelId: 1,
+    title: d.externalChangedTitle,
+    message: d.externalChanged.replace('{name}', fileName),
+    detail: hasUnsavedChanges ? d.externalChangedDirty : undefined
+  });
+  return result.response === 0;
 });
 
 ipcMain.handle('dialog:confirm', async (event, message) => {

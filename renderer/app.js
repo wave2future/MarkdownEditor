@@ -113,6 +113,16 @@ cm.getWrapperElement().addEventListener('contextmenu', (e) => {
   });
 }, true);
 
+preview.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  const selection = window.getSelection();
+  const selectedText = selection && selection.rangeCount > 0 &&
+    preview.contains(selection.getRangeAt(0).commonAncestorContainer)
+    ? selection.toString()
+    : '';
+  window.api.showPreviewContextMenu(selectedText);
+});
+
 // ---- Markdown 渲染（代码块用 highlight.js 高亮，hljs 在 preload 中加载） ----
 
 function escapeHtml(s) {
@@ -651,6 +661,32 @@ window.api.onMenu((action) => {
 // 双击 .md 文件 / 单实例转发过来的文件：在新 Tab 中打开
 window.api.onDocLoad(({ filePath, content }) => {
   openInNewTab(filePath, content);
+});
+
+let externalChangeQueue = Promise.resolve();
+window.api.onExternalFileChange(({ filePath, content }) => {
+  externalChangeQueue = externalChangeQueue.then(async () => {
+    const index = tabs.findIndex((tab) => tab.filePath === filePath);
+    if (index < 0) return;
+    const tab = tabs[index];
+    if (content === tab.savedContent) return;
+
+    const loadLatest = await window.api.confirmExternalChange(filePath, tab.dirty);
+    if (loadLatest) {
+      tab.savedContent = content;
+      tab.doc.setValue(content);
+      setTabDirty(tab, false);
+      if (tab === activeTab()) {
+        render();
+        updateStatus();
+      }
+    } else {
+      // 保留编辑器内容，但把新的磁盘内容作为比较基线，使当前版本保持“未保存”状态。
+      tab.savedContent = content;
+      setTabDirty(tab, tab.doc.getValue() !== content);
+    }
+    scheduleSessionSave();
+  }).catch(() => {});
 });
 
 // 关闭窗口时用户选择了"保存"：逐个保存所有脏 Tab 后再关闭

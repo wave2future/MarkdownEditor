@@ -16,7 +16,9 @@ const LOCALES = {
       unsaved: 'The document has unsaved changes. Save them?',
       save: 'Save', dontSave: "Don't Save", cancel: 'Cancel',
       discard: 'The document has unsaved changes. Discard them?',
-      ok: 'OK', openFailed: 'Failed to open file', exportFailed: 'Export failed'
+      ok: 'OK', openFailed: 'Failed to open file', exportFailed: 'Export failed',
+      externalChangedTitle: 'File Changed', externalChanged: '“{name}” was changed by another application. Load the latest content?',
+      externalChangedDirty: 'Loading will discard your unsaved changes in this tab.', loadLatest: 'Load Latest', keepCurrent: 'Keep Current'
     },
     ui: {
       untitled: 'Untitled', chars: '{n} characters', placeholder: 'Type Markdown here…',
@@ -44,7 +46,9 @@ const LOCALES = {
       unsaved: '文档尚未保存，是否保存更改？',
       save: '保存', dontSave: '不保存', cancel: '取消',
       discard: '当前文档尚未保存，放弃更改吗？',
-      ok: '确定', openFailed: '打开文件失败', exportFailed: '导出失败'
+      ok: '确定', openFailed: '打开文件失败', exportFailed: '导出失败',
+      externalChangedTitle: '文件已修改', externalChanged: '“{name}”已被其他应用修改，是否加载最新内容？',
+      externalChangedDirty: '加载后将丢弃此标签页中尚未保存的修改。', loadLatest: '加载最新内容', keepCurrent: '保留当前内容'
     },
     ui: {
       untitled: '未命名', chars: '{n} 字', placeholder: '在这里输入 Markdown 内容…',
@@ -72,7 +76,9 @@ const LOCALES = {
       unsaved: '変更が保存されていません。保存しますか？',
       save: '保存', dontSave: '保存しない', cancel: 'キャンセル',
       discard: '変更が保存されていません。破棄しますか？',
-      ok: 'OK', openFailed: 'ファイルを開けませんでした', exportFailed: 'エクスポートに失敗しました'
+      ok: 'OK', openFailed: 'ファイルを開けませんでした', exportFailed: 'エクスポートに失敗しました',
+      externalChangedTitle: 'ファイルが変更されました', externalChanged: '「{name}」が別のアプリで変更されました。最新の内容を読み込みますか？',
+      externalChangedDirty: '読み込むと、このタブの未保存の変更は破棄されます。', loadLatest: '最新を読み込む', keepCurrent: '現在の内容を保持'
     },
     ui: {
       untitled: '無題', chars: '{n} 文字', placeholder: 'ここに Markdown を入力…',
@@ -100,7 +106,9 @@ const LOCALES = {
       unsaved: 'Le document contient des modifications non enregistrées. Les enregistrer ?',
       save: 'Enregistrer', dontSave: 'Ne pas enregistrer', cancel: 'Annuler',
       discard: 'Le document contient des modifications non enregistrées. Les abandonner ?',
-      ok: 'OK', openFailed: "Échec de l'ouverture du fichier", exportFailed: "Échec de l'exportation"
+      ok: 'OK', openFailed: "Échec de l'ouverture du fichier", exportFailed: "Échec de l'exportation",
+      externalChangedTitle: 'Fichier modifié', externalChanged: '« {name} » a été modifié par une autre application. Charger la dernière version ?',
+      externalChangedDirty: 'Le chargement supprimera les modifications non enregistrées de cet onglet.', loadLatest: 'Charger', keepCurrent: 'Conserver'
     },
     ui: {
       untitled: 'Sans titre', chars: '{n} caractères', placeholder: 'Saisissez du Markdown ici…',
@@ -128,7 +136,9 @@ const LOCALES = {
       unsaved: '문서에 저장되지 않은 변경 사항이 있습니다. 저장하시겠습니까?',
       save: '저장', dontSave: '저장 안 함', cancel: '취소',
       discard: '저장되지 않은 변경 사항이 있습니다. 변경 사항을 버리시겠습니까?',
-      ok: '확인', openFailed: '파일을 열 수 없습니다', exportFailed: '내보내기 실패'
+      ok: '확인', openFailed: '파일을 열 수 없습니다', exportFailed: '내보내기 실패',
+      externalChangedTitle: '파일 변경됨', externalChanged: '“{name}” 파일이 다른 앱에서 변경되었습니다. 최신 내용을 불러오시겠습니까?',
+      externalChangedDirty: '불러오면 이 탭의 저장되지 않은 변경 사항이 삭제됩니다.', loadLatest: '최신 내용 불러오기', keepCurrent: '현재 내용 유지'
     },
     ui: {
       untitled: '제목 없음', chars: '{n}자', placeholder: '여기에 Markdown을 입력하세요…',
@@ -156,7 +166,9 @@ const LOCALES = {
       unsaved: 'Das Dokument enthält ungespeicherte Änderungen. Speichern?',
       save: 'Speichern', dontSave: 'Nicht speichern', cancel: 'Abbrechen',
       discard: 'Das Dokument enthält ungespeicherte Änderungen. Verwerfen?',
-      ok: 'OK', openFailed: 'Datei konnte nicht geöffnet werden', exportFailed: 'Export fehlgeschlagen'
+      ok: 'OK', openFailed: 'Datei konnte nicht geöffnet werden', exportFailed: 'Export fehlgeschlagen',
+      externalChangedTitle: 'Datei geändert', externalChanged: '„{name}“ wurde von einer anderen Anwendung geändert. Neueste Version laden?',
+      externalChangedDirty: 'Beim Laden werden ungespeicherte Änderungen in diesem Tab verworfen.', loadLatest: 'Neueste laden', keepCurrent: 'Aktuelle behalten'
     },
     ui: {
       untitled: 'Unbenannt', chars: '{n} Zeichen', placeholder: 'Markdown hier eingeben…',
