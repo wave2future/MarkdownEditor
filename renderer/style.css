@@ -26,6 +26,8 @@
   --pre-bg: #2a2a2e;
   --btn-hover: #3a3a40;
   --heading-border: #3f3f46;
+  --selection-bg: #a8d2ff;
+  --selection-text: #172033;
 }
 
 html, body {
@@ -219,6 +221,25 @@ body.drag-over #main::after {
 
 .CodeMirror .CodeMirror-lines { padding: 16px 8px; }
 .CodeMirror pre.CodeMirror-placeholder { color: var(--text-muted); }
+
+/* material-darker 默认选区透明度过低；编辑区与预览区统一使用清晰的淡蓝色。 */
+:root[data-theme="dark"] .cm-s-material-darker div.CodeMirror-selected,
+:root[data-theme="dark"] .cm-s-material-darker.CodeMirror-focused div.CodeMirror-selected {
+  background: var(--selection-bg);
+}
+
+:root[data-theme="dark"] .cm-s-material-darker .CodeMirror-selectedtext {
+  color: var(--selection-text) !important;
+}
+
+:root[data-theme="dark"] #preview::selection,
+:root[data-theme="dark"] #preview *::selection,
+:root[data-theme="dark"] .cm-s-material-darker .CodeMirror-line::selection,
+:root[data-theme="dark"] .cm-s-material-darker .CodeMirror-line > span::selection,
+:root[data-theme="dark"] .cm-s-material-darker .CodeMirror-line > span > span::selection {
+  color: var(--selection-text);
+  background: var(--selection-bg);
+}
 
 #preview {
   flex: 1;

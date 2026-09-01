@@ -59,6 +59,7 @@ const cm = CodeMirror(document.getElementById('editor-host'), {
   mode: 'markdown',
   lineWrapping: true,
   autofocus: true,
+  styleSelectedText: true,
   extraKeys: {
     'Enter': 'newlineAndIndentContinueMarkdownList',
     'Tab': (cm) => {
