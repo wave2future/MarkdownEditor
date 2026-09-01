@@ -1,11 +1,12 @@
 {
   "name": "markdown-editor",
-  "version": "1.3.1",
+  "version": "2.0.0",
   "description": "Simple and Elegant Markdown Editor",
   "main": "main.js",
   "license": "MIT",
   "scripts": {
     "start": "electron .",
+    "test": "node --test",
     "dist": "electron-builder",
     "dist:win": "electron-builder --win",
     "dist:mac": "electron-builder --mac",
@@ -48,6 +49,7 @@
       "main.js",
       "preload.js",
       "locales.js",
+      "lib/**/*",
       "renderer/**/*",
       "node_modules/**/*"
     ]

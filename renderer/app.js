@@ -6,11 +6,87 @@ const statusMsg = document.getElementById('status-msg');
 const statusCount = document.getElementById('status-count');
 const themeSelect = document.getElementById('theme-select');
 const langSelect = document.getElementById('lang-select');
+const findBar = document.getElementById('find-bar');
+const outline = document.getElementById('outline');
+const findInput = document.getElementById('find-input');
+const findCount = document.getElementById('find-count');
+const findPrev = document.getElementById('find-prev');
+const findNext = document.getElementById('find-next');
+const findClose = document.getElementById('find-close');
+const findCase = document.getElementById('find-case');
+const findWord = document.getElementById('find-word');
+const findRegex = document.getElementById('find-regex');
+const replaceRow = document.getElementById('replace-row');
+const replaceInput = document.getElementById('replace-input');
+const replaceOne = document.getElementById('replace-one');
+const replaceAll = document.getElementById('replace-all');
+const autoSaveToggle = document.getElementById('autosave-toggle');
+const historyModal = document.getElementById('history-modal');
+const historyTitle = document.getElementById('history-title');
+const historyList = document.getElementById('history-list');
+const historyClose = document.getElementById('history-close');
+const diffModal = document.getElementById('diff-modal');
+const diffTitle = document.getElementById('diff-title');
+const diffPath = document.getElementById('diff-path');
+const diffContent = document.getElementById('diff-content');
+const diffCurrentLabel = document.getElementById('diff-current-label');
+const diffDiskLabel = document.getElementById('diff-disk-label');
+const diffKeep = document.getElementById('diff-keep');
+const diffLoad = document.getElementById('diff-load');
+const settingsModal = document.getElementById('settings-modal');
+const settingsTitle = document.getElementById('settings-title');
+const settingsClose = document.getElementById('settings-close');
+const settingsCancel = document.getElementById('settings-cancel');
+const settingsSave = document.getElementById('settings-save');
+const settingLineNumbers = document.getElementById('setting-line-numbers');
+const settingLineWrapping = document.getElementById('setting-line-wrapping');
+const settingAutoSave = document.getElementById('setting-auto-save');
+const settingTabSize = document.getElementById('setting-tab-size');
+const settingFontSize = document.getElementById('setting-font-size');
+const settingDefaultView = document.getElementById('setting-default-view');
+const gotoModal = document.getElementById('goto-modal');
+const gotoTitle = document.getElementById('goto-title');
+const gotoInput = document.getElementById('goto-input');
+const gotoClose = document.getElementById('goto-close');
+const gotoCancel = document.getElementById('goto-cancel');
+const gotoSubmit = document.getElementById('goto-submit');
 
 let lang = localStorage.getItem('lang') || 'en';
 let themeSetting = localStorage.getItem('theme') || 'system';
+const DEFAULT_EDITOR_SETTINGS = Object.freeze({
+  lineNumbers: false,
+  lineWrapping: true,
+  autoSave: localStorage.getItem('autoSave') === 'true',
+  tabSize: 2,
+  fontSize: 14,
+  defaultView: 'split'
+});
+
+function loadEditorSettings() {
+  let stored = {};
+  try { stored = JSON.parse(localStorage.getItem('editorSettings') || '{}'); } catch { /* Ignore invalid settings. */ }
+  return {
+    lineNumbers: typeof stored.lineNumbers === 'boolean' ? stored.lineNumbers : DEFAULT_EDITOR_SETTINGS.lineNumbers,
+    lineWrapping: typeof stored.lineWrapping === 'boolean' ? stored.lineWrapping : DEFAULT_EDITOR_SETTINGS.lineWrapping,
+    autoSave: typeof stored.autoSave === 'boolean' ? stored.autoSave : DEFAULT_EDITOR_SETTINGS.autoSave,
+    tabSize: [2, 4, 8].includes(Number(stored.tabSize)) ? Number(stored.tabSize) : 2,
+    fontSize: Math.min(28, Math.max(11, Number(stored.fontSize) || 14)),
+    defaultView: ['edit', 'split', 'preview'].includes(stored.defaultView) ? stored.defaultView : 'split'
+  };
+}
+
+let editorSettings = loadEditorSettings();
 
 const L = () => LOCALES[lang] || LOCALES.en;
+const DEFAULT_DOCUMENT_FORMAT = Object.freeze({ encoding: 'utf8', bom: false, eol: '\n' });
+
+function documentFormat(value) {
+  return {
+    encoding: ['utf8', 'utf16le', 'utf16be'].includes(value?.encoding) ? value.encoding : 'utf8',
+    bom: !!value?.bom,
+    eol: ['\n', '\r\n', '\r'].includes(value?.eol) ? value.eol : '\n'
+  };
+}
 
 // ---- 多文档（Tab）模型 ----
 // 单个 CodeMirror 实例 + 每个 Tab 一份 CodeMirror.Doc，用 cm.swapDoc() 切换。
@@ -20,6 +96,8 @@ let activeIndex = -1;
 let tabSeq = 0;
 let restoringSession = false;
 let sessionSaveTimer = null;
+let autoSaveEnabled = editorSettings.autoSave;
+const autoSaveTimers = new Map();
 
 function activeTab() {
   return tabs[activeIndex] || null;
@@ -33,6 +111,7 @@ function sessionSnapshot() {
       filePath: tab.filePath,
       content: tab.doc.getValue(),
       savedContent: tab.savedContent,
+      format: tab.format,
       dirty: tab.dirty
     }))
   };
@@ -45,6 +124,27 @@ function scheduleSessionSave() {
     sessionSaveTimer = null;
     window.api.saveSession(sessionSnapshot()).catch(() => {});
   }, 150);
+}
+
+function scheduleAutoSave(tab) {
+  if (!autoSaveEnabled || !tab?.filePath || !tab.dirty) return;
+  clearTimeout(autoSaveTimers.get(tab.id));
+  autoSaveTimers.set(tab.id, setTimeout(async () => {
+    const content = tab.doc.getValue();
+    try {
+      const result = await window.api.saveFile(tab.filePath, content, tab.format, true);
+      if (!result?.ok) {
+        flashStatus(L().ui.autoSaveFailed.replace('{error}', result?.error || 'Unknown error'));
+        return;
+      }
+      tab.format = documentFormat(result.format);
+      tab.savedContent = content;
+      setTabDirty(tab, tab.doc.getValue() !== content);
+    } catch {
+      // 常规保存错误由下一次手动保存或自动保存重试处理。
+    }
+    autoSaveTimers.delete(tab.id);
+  }, 1500));
 }
 
 async function persistSessionNow() {
@@ -62,6 +162,18 @@ const cm = CodeMirror(document.getElementById('editor-host'), {
   styleSelectedText: true,
   extraKeys: {
     'Enter': 'newlineAndIndentContinueMarkdownList',
+    'Cmd-F': () => openFind(),
+    'Ctrl-F': () => openFind(),
+    'Ctrl-H': () => openReplace(),
+    'Cmd-Alt-F': () => openReplace(),
+    'Cmd-B': () => wrapSelection('**', '**', 'bold'),
+    'Ctrl-B': () => wrapSelection('**', '**', 'bold'),
+    'Cmd-I': () => wrapSelection('*', '*', 'italic'),
+    'Ctrl-I': () => wrapSelection('*', '*', 'italic'),
+    'Cmd-G': () => navigateSearch(1),
+    'Ctrl-G': () => navigateSearch(1),
+    'Shift-Cmd-G': () => navigateSearch(-1),
+    'Shift-Ctrl-G': () => navigateSearch(-1),
     'Tab': (cm) => {
       if (cm.somethingSelected()) cm.indentSelection('add');
       else cm.replaceSelection('  ');
@@ -69,6 +181,228 @@ const cm = CodeMirror(document.getElementById('editor-host'), {
     'Shift-Tab': (cm) => cm.indentSelection('subtract')
   }
 });
+
+let searchMarkers = [];
+let searchMatches = [];
+let searchIndex = -1;
+let searchRefreshTimer = null;
+let searchInvalid = false;
+
+function searchOption(button) {
+  return button.getAttribute('aria-pressed') === 'true';
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function searchPattern() {
+  const source = searchOption(findRegex) ? findInput.value : escapeRegExp(findInput.value);
+  const wrapped = searchOption(findWord) ? `\\b(?:${source})\\b` : source;
+  return new RegExp(wrapped, searchOption(findCase) ? 'g' : 'gi');
+}
+
+function clearSearchMarkers() {
+  searchMarkers.forEach((marker) => marker.clear());
+  searchMarkers = [];
+}
+
+function updateSearchCount() {
+  if (!findInput.value) findCount.textContent = '';
+  else if (searchInvalid) findCount.textContent = L().ui.invalidRegex;
+  else if (searchMatches.length === 0) findCount.textContent = L().ui.noResults;
+  else findCount.textContent = L().ui.matchCount
+    .replace('{current}', searchIndex + 1)
+    .replace('{total}', searchMatches.length);
+}
+
+function refreshSearch(selectMatch = true) {
+  clearSearchMarkers();
+  searchMatches = [];
+  searchIndex = -1;
+  searchInvalid = false;
+  const query = findInput.value;
+  if (!query) {
+    updateSearchCount();
+    return;
+  }
+
+  let pattern;
+  try {
+    pattern = searchPattern();
+  } catch {
+    searchInvalid = true;
+    updateSearchCount();
+    return;
+  }
+  const cursor = cm.getSearchCursor(pattern, CodeMirror.Pos(0, 0));
+  while (cursor.findNext()) {
+    if (CodeMirror.cmpPos(cursor.from(), cursor.to()) !== 0) {
+      searchMatches.push({ from: cursor.from(), to: cursor.to() });
+    }
+  }
+
+  if (searchMatches.length > 0) {
+    const position = cm.getCursor('from');
+    searchIndex = searchMatches.findIndex((match) => CodeMirror.cmpPos(match.from, position) >= 0);
+    if (searchIndex < 0) searchIndex = 0;
+  }
+  paintSearchMatches();
+  if (selectMatch && searchIndex >= 0) selectSearchMatch();
+  updateSearchCount();
+}
+
+function paintSearchMatches() {
+  clearSearchMarkers();
+  searchMarkers = searchMatches.map((match, index) => cm.markText(match.from, match.to, {
+    className: index === searchIndex ? 'cm-searching cm-searching-current' : 'cm-searching'
+  }));
+}
+
+function selectSearchMatch() {
+  const match = searchMatches[searchIndex];
+  if (!match) return;
+  cm.setSelection(match.from, match.to);
+  cm.scrollIntoView({ from: match.from, to: match.to }, 80);
+}
+
+function navigateSearch(direction) {
+  if (findBar.hidden) {
+    openFind();
+    return;
+  }
+  if (searchMatches.length === 0) refreshSearch(false);
+  if (searchMatches.length === 0) return;
+  searchIndex = (searchIndex + direction + searchMatches.length) % searchMatches.length;
+  paintSearchMatches();
+  selectSearchMatch();
+  updateSearchCount();
+  findInput.focus();
+}
+
+function openFind() {
+  openSearch(false);
+}
+
+function openReplace() {
+  openSearch(true);
+}
+
+function openSearch(showReplace) {
+  if (main.classList.contains('mode-preview')) setView('edit');
+  const selected = cm.getSelection();
+  if (findBar.hidden && selected && !selected.includes('\n') && selected.length <= 200) {
+    findInput.value = selected;
+  }
+  findBar.hidden = false;
+  if (showReplace) replaceRow.hidden = false;
+  refreshSearch(true);
+  // 菜单快捷键触发后 Electron 会尝试恢复原焦点，延后一帧可确保光标留在搜索框。
+  requestAnimationFrame(() => {
+    findInput.focus();
+    findInput.select();
+  });
+}
+
+function replaceCurrent() {
+  if (searchIndex < 0 || !searchMatches[searchIndex]) return;
+  const match = searchMatches[searchIndex];
+  cm.replaceRange(replacementForMatch(match), match.from, match.to, '+replace');
+  refreshSearch(true);
+  replaceInput.focus();
+}
+
+function replacementForMatch(match) {
+  if (!searchOption(findRegex)) return replaceInput.value;
+  const text = cm.getRange(match.from, match.to);
+  const pattern = searchPattern();
+  pattern.lastIndex = 0;
+  return text.replace(new RegExp(pattern.source, pattern.flags.replace('g', '')), replaceInput.value);
+}
+
+function replaceEveryMatch() {
+  refreshSearch(false);
+  if (searchMatches.length === 0) return;
+  cm.operation(() => {
+    for (let i = searchMatches.length - 1; i >= 0; i--) {
+      cm.replaceRange(replacementForMatch(searchMatches[i]), searchMatches[i].from, searchMatches[i].to, '+replace');
+    }
+  });
+  refreshSearch(false);
+  replaceInput.focus();
+}
+
+function closeFind() {
+  findBar.hidden = true;
+  replaceRow.hidden = true;
+  clearSearchMarkers();
+  searchMatches = [];
+  searchIndex = -1;
+  clearTimeout(searchRefreshTimer);
+  cm.focus();
+}
+
+findInput.addEventListener('input', () => refreshSearch(true));
+findInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    navigateSearch(e.shiftKey ? -1 : 1);
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    closeFind();
+  }
+});
+findPrev.addEventListener('click', () => navigateSearch(-1));
+findNext.addEventListener('click', () => navigateSearch(1));
+findClose.addEventListener('click', closeFind);
+replaceOne.addEventListener('click', replaceCurrent);
+replaceAll.addEventListener('click', replaceEveryMatch);
+replaceInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    replaceCurrent();
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    closeFind();
+  }
+});
+[findCase, findWord, findRegex].forEach((button) => {
+  button.addEventListener('click', () => {
+    button.setAttribute('aria-pressed', String(!searchOption(button)));
+    refreshSearch(true);
+  });
+});
+
+window.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'f') {
+    e.preventDefault();
+    openFind();
+  } else if (e.ctrlKey && !e.metaKey && e.key.toLowerCase() === 'h') {
+    e.preventDefault();
+    openReplace();
+  } else if (e.metaKey && e.altKey && e.key.toLowerCase() === 'f') {
+    e.preventDefault();
+    openReplace();
+  } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'l') {
+    e.preventDefault();
+    openGoToLine();
+  } else if (e.key === 'Escape' && !findBar.hidden) {
+    e.preventDefault();
+    closeFind();
+  } else if (e.key === 'Escape' && !historyModal.hidden) {
+    e.preventDefault();
+    closeHistory();
+  } else if (e.key === 'Escape' && !diffModal.hidden) {
+    e.preventDefault();
+    resolveExternalDiff(false);
+  } else if (e.key === 'Escape' && !settingsModal.hidden) {
+    e.preventDefault();
+    closeSettings();
+  } else if (e.key === 'Escape' && !gotoModal.hidden) {
+    e.preventDefault();
+    closeGoToLine();
+  }
+}, true);
 
 function copySelection() {
   if (!cm.somethingSelected()) return;
@@ -87,10 +421,68 @@ function cutSelection() {
 
 async function pasteClipboard() {
   const text = await window.api.readClipboardText();
+  if (!text) {
+    const bytes = await window.api.readClipboardImage();
+    if (bytes) {
+      const documentPath = await ensureDocumentPath();
+      if (documentPath) insertImageMarkdown(await window.api.saveImageData(bytes, 'image/png', documentPath));
+      return;
+    }
+  }
   cm.operation(() => {
     cm.replaceSelections(cm.listSelections().map(() => text), 'end', '+paste');
   });
   cm.focus();
+}
+
+function wrapSelection(before, after, placeholder) {
+  cm.operation(() => {
+    const selections = cm.getSelections();
+    cm.replaceSelections(selections.map((text) => `${before}${text || placeholder}${after}`), 'around', '+format');
+  });
+  cm.focus();
+}
+
+function prefixSelectedLines(prefix) {
+  const from = cm.getCursor('from').line;
+  const end = cm.getCursor('to');
+  const to = end.ch === 0 && end.line > from ? end.line - 1 : end.line;
+  const lines = [];
+  for (let line = from; line <= to; line++) lines.push(cm.getLine(line));
+  const remove = lines.filter((line) => line.trim()).every((line) => line.startsWith(prefix));
+  cm.operation(() => {
+    for (let line = to; line >= from; line--) {
+      if (remove) cm.replaceRange('', { line, ch: 0 }, { line, ch: prefix.length }, '+format');
+      else cm.replaceRange(prefix, { line, ch: 0 }, null, '+format');
+    }
+  });
+  cm.focus();
+}
+
+function applyFormat(format) {
+  ({
+    bold: () => wrapSelection('**', '**', 'bold'),
+    italic: () => wrapSelection('*', '*', 'italic'),
+    strike: () => wrapSelection('~~', '~~', 'text'),
+    heading: () => prefixSelectedLines('## '),
+    quote: () => prefixSelectedLines('> '),
+    bullet: () => prefixSelectedLines('- '),
+    numbered: () => prefixSelectedLines('1. '),
+    task: () => prefixSelectedLines('- [ ] '),
+    link: () => wrapSelection('[', '](https://)', 'link text'),
+    image: chooseAndInsertImage,
+    code: () => {
+      const selected = cm.getSelection();
+      if (selected.includes('\n')) wrapSelection('```\n', '\n```', 'code');
+      else wrapSelection('`', '`', 'code');
+    }
+  })[format]?.();
+}
+
+async function chooseAndInsertImage() {
+  const documentPath = await ensureDocumentPath();
+  if (!documentPath) return;
+  insertImageMarkdown(await window.api.chooseImage(documentPath));
 }
 
 // 右键点在现有选区内时保留选区；点在选区外时，把光标移到点击位置。
@@ -153,6 +545,20 @@ function resolveSrc(src) {
   }
 }
 
+function safeUrl(raw, kind) {
+  if (!raw) return null;
+  if (kind === 'image' && /^data:image\/(?:png|gif|jpe?g|webp|svg\+xml);/i.test(raw)) return raw;
+  try {
+    const resolved = new URL(raw, docBaseUrl || location.href);
+    const allowed = kind === 'image'
+      ? ['file:', 'http:', 'https:']
+      : ['file:', 'http:', 'https:', 'mailto:'];
+    return allowed.includes(resolved.protocol) ? resolved.href : null;
+  } catch {
+    return null;
+  }
+}
+
 // ---- 数学公式（KaTeX，katex 全局变量由 index.html 的 script 标签提供） ----
 
 function renderMath(tex, displayMode) {
@@ -195,16 +601,29 @@ marked.use({
   gfm: true,
   extensions: [blockMath, inlineMath],
   renderer: {
+    // 不可信 Markdown 中的原始 HTML 仅作为文本显示，阻止事件属性和脚本进入预览区。
+    html(token) {
+      return escapeHtml(token.text || token.raw || '');
+    },
     code(token) {
       const langName = (token.lang || '').match(/^\S*/)[0];
       const highlighted = window.api.highlight(token.text, langName) ?? escapeHtml(token.text);
       return `<pre><code class="hljs">${highlighted}</code></pre>\n`;
     },
     image(token) {
-      const src = escapeAttr(resolveSrc(token.href || ''));
+      const safeSrc = safeUrl(resolveSrc(token.href || ''), 'image');
       const alt = escapeAttr(token.text || '');
+      if (!safeSrc) return alt;
+      const src = escapeAttr(safeSrc);
       const title = token.title ? ` title="${escapeAttr(token.title)}"` : '';
       return `<img src="${src}" alt="${alt}"${title}>`;
+    },
+    link(token) {
+      const href = safeUrl(token.href || '', 'link');
+      const text = this.parser.parseInline(token.tokens || []);
+      if (!href) return text;
+      const title = token.title ? ` title="${escapeAttr(token.title)}"` : '';
+      return `<a href="${escapeAttr(href)}"${title}>${text}</a>`;
     }
   }
 });
@@ -215,7 +634,67 @@ function renderMarkdown() {
 
 function render() {
   preview.innerHTML = renderMarkdown();
+  renderOutline();
 }
+
+function documentHeadings() {
+  const headings = [];
+  let fenced = false;
+  cm.eachLine((handle) => {
+    const line = handle.text;
+    if (/^\s*(```|~~~)/.test(line)) {
+      fenced = !fenced;
+      return;
+    }
+    if (fenced) return;
+    const match = /^(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line);
+    if (match) headings.push({ level: match[1].length, text: match[2], line: cm.getLineNumber(handle) });
+  });
+  return headings;
+}
+
+function renderOutline() {
+  if (outline.hidden) return;
+  outline.innerHTML = '';
+  const headings = documentHeadings();
+  if (headings.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'outline-empty';
+    empty.textContent = L().ui.noHeadings;
+    outline.appendChild(empty);
+    return;
+  }
+  headings.forEach((heading) => {
+    const button = document.createElement('button');
+    button.className = 'outline-item';
+    button.style.paddingLeft = `${6 + (heading.level - 1) * 12}px`;
+    button.textContent = heading.text;
+    button.title = heading.text;
+    button.addEventListener('click', () => {
+      if (main.classList.contains('mode-preview')) setView('edit');
+      cm.setCursor({ line: heading.line, ch: 0 });
+      cm.scrollIntoView({ line: heading.line, ch: 0 }, 100);
+      cm.focus();
+    });
+    outline.appendChild(button);
+  });
+}
+
+function toggleOutline() {
+  outline.hidden = !outline.hidden;
+  document.getElementById('btn-outline').classList.toggle('active', !outline.hidden);
+  localStorage.setItem('outlineVisible', String(!outline.hidden));
+  if (!outline.hidden) renderOutline();
+  cm.refresh();
+}
+
+preview.addEventListener('click', (e) => {
+  const link = e.target.closest('a[href]');
+  if (!link || !preview.contains(link)) return;
+  e.preventDefault();
+  const href = link.href;
+  if (/^(https?:|mailto:)/i.test(href)) window.api.openExternal(href);
+});
 
 // ---- 国际化 ----
 
@@ -230,7 +709,19 @@ function updateStatus() {
   const tab = activeTab();
   const dirty = !!(tab && tab.dirty);
   statusPath.textContent = (tab && tab.filePath ? tab.filePath : ui.untitled) + (dirty ? ' •' : '');
-  statusCount.textContent = ui.chars.replace('{n}', tab ? tab.doc.getValue().length : 0);
+  const content = tab ? tab.doc.getValue() : '';
+  const cursor = cm.getCursor();
+  const selected = cm.getSelections().reduce((total, text) => total + text.length, 0);
+  const cjk = (content.match(/[\u3400-\u9fff\uf900-\ufaff\u3040-\u30ff\uac00-\ud7af]/g) || []).length;
+  const nonCjk = content.replace(/[\u3400-\u9fff\uf900-\ufaff\u3040-\u30ff\uac00-\ud7af]/g, ' ');
+  const words = cjk + (nonCjk.match(/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu) || []).length;
+  statusCount.textContent = ui.stats
+    .replace('{words}', words)
+    .replace('{chars}', content.length)
+    .replace('{lines}', tab ? tab.doc.lineCount() : 1)
+    .replace('{line}', cursor.line + 1)
+    .replace('{column}', cursor.ch + 1) +
+    (selected ? ui.selectedStats.replace('{selected}', selected) : '');
   document.title = `${dirty ? '• ' : ''}${docName()} - Markdown Editor`;
 }
 
@@ -245,6 +736,8 @@ function applyLang() {
     'btn-export-html': `${ui.exportHtml} (Ctrl+E)`,
     'btn-export-pdf': `${ui.exportPdf} (Ctrl+Shift+E)`,
     'btn-print': `${ui.print} (Ctrl+P)`,
+    'btn-outline': ui.outline,
+    'btn-settings': ui.settings,
     'btn-view-edit': `${ui.edit} (Ctrl+1)`,
     'btn-view-split': `${ui.split} (Ctrl+2)`,
     'btn-view-preview': `${ui.preview} (Ctrl+3)`
@@ -257,6 +750,60 @@ function applyLang() {
   const themeLabels = [ui.themeSystem, ui.themeLight, ui.themeDark];
   Array.from(themeSelect.options).forEach((opt, i) => { opt.textContent = themeLabels[i]; });
   cm.setOption('placeholder', ui.placeholder);
+  findInput.placeholder = ui.findPlaceholder;
+  findInput.setAttribute('aria-label', ui.find);
+  findPrev.title = ui.findPrevious;
+  findPrev.setAttribute('aria-label', ui.findPrevious);
+  findNext.title = ui.findNext;
+  findNext.setAttribute('aria-label', ui.findNext);
+  findClose.title = ui.close;
+  findClose.setAttribute('aria-label', ui.close);
+  replaceInput.placeholder = ui.replacePlaceholder;
+  replaceInput.setAttribute('aria-label', ui.replacePlaceholder);
+  replaceOne.textContent = ui.replace;
+  replaceAll.textContent = ui.replaceAll;
+  findCase.title = ui.matchCase;
+  findCase.setAttribute('aria-label', ui.matchCase);
+  findWord.title = ui.wholeWord;
+  findWord.setAttribute('aria-label', ui.wholeWord);
+  findRegex.title = ui.useRegex;
+  findRegex.setAttribute('aria-label', ui.useRegex);
+  autoSaveToggle.textContent = ui.autoSave;
+  autoSaveToggle.title = ui.autoSave;
+  autoSaveToggle.setAttribute('aria-label', ui.autoSave);
+  autoSaveToggle.setAttribute('aria-pressed', String(autoSaveEnabled));
+  historyTitle.textContent = ui.history;
+  diffTitle.textContent = ui.diffTitle;
+  diffCurrentLabel.textContent = ui.currentVersion;
+  diffDiskLabel.textContent = ui.diskVersion;
+  diffKeep.textContent = ui.keepCurrent;
+  diffLoad.textContent = ui.loadLatest;
+  settingsTitle.textContent = ui.settings;
+  document.getElementById('label-line-numbers').textContent = ui.lineNumbers;
+  document.getElementById('label-line-wrapping').textContent = ui.lineWrapping;
+  document.getElementById('label-auto-save').textContent = ui.autoSave;
+  document.getElementById('label-tab-size').textContent = ui.tabSize;
+  document.getElementById('label-font-size').textContent = ui.fontSize;
+  document.getElementById('label-default-view').textContent = ui.defaultView;
+  settingsCancel.textContent = ui.close;
+  settingsSave.textContent = ui.save;
+  const viewLabels = [ui.edit, ui.split, ui.preview];
+  Array.from(settingDefaultView.options).forEach((option, index) => { option.textContent = viewLabels[index]; });
+  gotoTitle.textContent = ui.goToLine;
+  gotoInput.placeholder = ui.lineNumber;
+  gotoInput.setAttribute('aria-label', ui.lineNumber);
+  gotoCancel.textContent = ui.close;
+  gotoSubmit.textContent = ui.go;
+  const formatLabels = {
+    bold: ui.bold, italic: ui.italic, strike: ui.strike, heading: ui.heading, quote: ui.quote,
+    code: ui.code, link: ui.link, image: ui.image, bullet: ui.bulletList, numbered: ui.numberedList, task: ui.taskList
+  };
+  document.querySelectorAll('.format-btn').forEach((button) => {
+    const label = formatLabels[button.dataset.format];
+    button.title = label;
+    button.setAttribute('aria-label', label);
+  });
+  updateSearchCount();
   renderTabs();
   updateStatus();
   window.api.setLang(lang); // 通知主进程重建菜单
@@ -298,6 +845,81 @@ darkMedia.addEventListener('change', () => {
   if (themeSetting === 'system') applyTheme();
 });
 
+// ---- 编辑器设置 ----
+
+function persistEditorSettings() {
+  editorSettings.autoSave = autoSaveEnabled;
+  localStorage.setItem('editorSettings', JSON.stringify(editorSettings));
+  localStorage.setItem('autoSave', String(autoSaveEnabled));
+}
+
+function applyEditorSettings() {
+  cm.setOption('lineNumbers', editorSettings.lineNumbers);
+  cm.setOption('lineWrapping', editorSettings.lineWrapping);
+  cm.setOption('tabSize', editorSettings.tabSize);
+  cm.setOption('indentUnit', editorSettings.tabSize);
+  cm.getWrapperElement().style.fontSize = `${editorSettings.fontSize}px`;
+  cm.refresh();
+}
+
+function openSettings() {
+  settingLineNumbers.checked = editorSettings.lineNumbers;
+  settingLineWrapping.checked = editorSettings.lineWrapping;
+  settingAutoSave.checked = autoSaveEnabled;
+  settingTabSize.value = String(editorSettings.tabSize);
+  settingFontSize.value = String(editorSettings.fontSize);
+  settingDefaultView.value = editorSettings.defaultView;
+  settingsModal.hidden = false;
+  settingLineNumbers.focus();
+}
+
+function closeSettings() {
+  settingsModal.hidden = true;
+  cm.focus();
+}
+
+function saveSettings() {
+  editorSettings = {
+    lineNumbers: settingLineNumbers.checked,
+    lineWrapping: settingLineWrapping.checked,
+    autoSave: settingAutoSave.checked,
+    tabSize: Number(settingTabSize.value),
+    fontSize: Math.min(28, Math.max(11, Number(settingFontSize.value) || 14)),
+    defaultView: settingDefaultView.value
+  };
+  autoSaveEnabled = editorSettings.autoSave;
+  autoSaveToggle.setAttribute('aria-pressed', String(autoSaveEnabled));
+  if (!autoSaveEnabled) {
+    autoSaveTimers.forEach((timer) => clearTimeout(timer));
+    autoSaveTimers.clear();
+  } else {
+    scheduleAutoSave(activeTab());
+  }
+  persistEditorSettings();
+  applyEditorSettings();
+  closeSettings();
+}
+
+function openGoToLine() {
+  gotoInput.max = String(cm.lineCount());
+  gotoInput.value = String(cm.getCursor().line + 1);
+  gotoModal.hidden = false;
+  requestAnimationFrame(() => { gotoInput.focus(); gotoInput.select(); });
+}
+
+function closeGoToLine() {
+  gotoModal.hidden = true;
+  cm.focus();
+}
+
+function goToLine() {
+  const line = Math.min(cm.lineCount(), Math.max(1, Number.parseInt(gotoInput.value, 10) || 1));
+  closeGoToLine();
+  cm.setCursor({ line: line - 1, ch: 0 });
+  cm.scrollIntoView({ line: line - 1, ch: 0 }, 100);
+  cm.focus();
+}
+
 // ---- Tab 管理 ----
 
 // 主进程的"未保存"标志（驱动关窗确认对话框）只需知道"是否有任意 Tab 脏"
@@ -315,12 +937,14 @@ function setTabDirty(tab, value) {
   scheduleSessionSave();
 }
 
-function createTab(filePath, content, savedContent = content, dirty = false) {
+function createTab(filePath, content, savedContent = content, dirty = false, format = DEFAULT_DOCUMENT_FORMAT) {
   const tab = {
     id: ++tabSeq,
     filePath,
     doc: CodeMirror.Doc(content, 'markdown'),
     savedContent,
+    format: documentFormat(format),
+    missing: false,
     dirty
   };
   tabs.push(tab);
@@ -330,6 +954,7 @@ function createTab(filePath, content, savedContent = content, dirty = false) {
 
 function activateTab(index) {
   if (index < 0 || index >= tabs.length) return;
+  clearSearchMarkers();
   activeIndex = index;
   const tab = tabs[index];
   cm.swapDoc(tab.doc);
@@ -337,12 +962,13 @@ function activateTab(index) {
   render();
   renderTabs();
   updateStatus();
+  if (!findBar.hidden) refreshSearch(false);
   cm.focus();
   scheduleSessionSave();
 }
 
 // 已打开同一文件则直接切过去（保留其中未保存的编辑），否则新建 Tab
-function openInNewTab(filePath, content) {
+function openInNewTab(filePath, content, format) {
   if (filePath) {
     const existing = tabs.findIndex((t) => t.filePath === filePath);
     if (existing >= 0) {
@@ -350,7 +976,7 @@ function openInNewTab(filePath, content) {
       return;
     }
   }
-  createTab(filePath, content);
+  createTab(filePath, content, content, false, format);
   activateTab(tabs.length - 1);
 }
 
@@ -361,6 +987,10 @@ async function closeTab(index) {
     activateTab(index);
     if (!(await window.api.confirmDiscard(L().dialog.discard))) return;
   }
+  removeTab(index);
+}
+
+function removeTab(index) {
   tabs.splice(index, 1);
   if (tabs.length === 0) {
     createTab(null, '');
@@ -419,7 +1049,8 @@ async function restorePreviousSession() {
       savedTab.filePath || null,
       typeof savedTab.content === 'string' ? savedTab.content : '',
       typeof savedTab.savedContent === 'string' ? savedTab.savedContent : '',
-      !!savedTab.dirty
+      !!savedTab.dirty,
+      savedTab.format
     );
   }
   restoringSession = false;
@@ -438,7 +1069,12 @@ cm.on('change', () => {
   if (!tab) return;
   clearTimeout(renderTimer);
   renderTimer = setTimeout(render, 120);
-  setTabDirty(tab, tab.doc.getValue() !== tab.savedContent);
+  setTabDirty(tab, tab.missing || tab.doc.getValue() !== tab.savedContent);
+  scheduleAutoSave(tab);
+  if (!findBar.hidden) {
+    clearTimeout(searchRefreshTimer);
+    searchRefreshTimer = setTimeout(() => refreshSearch(false), 80);
+  }
 });
 
 // 编辑区滚动时，预览区按比例同步
@@ -447,6 +1083,8 @@ cm.on('scroll', () => {
   const ratio = info.top / Math.max(1, info.height - info.clientHeight);
   preview.scrollTop = ratio * (preview.scrollHeight - preview.clientHeight);
 });
+
+cm.on('cursorActivity', updateStatus);
 
 // ---- 文件操作 ----
 
@@ -457,16 +1095,23 @@ function newFile() {
 
 async function openFile() {
   const result = await window.api.openFile();
-  if (result) openInNewTab(result.filePath, result.content);
+  if (result) openInNewTab(result.filePath, result.content, result.format);
 }
 
 async function saveFile() {
   const tab = activeTab();
   if (!tab) return false;
   if (tab.filePath) {
-    await window.api.saveFile(tab.filePath, tab.doc.getValue());
+    const result = await window.api.saveFile(tab.filePath, tab.doc.getValue(), tab.format);
+    if (!result?.ok) {
+      flashStatus(L().ui.saveFailed.replace('{error}', result?.error || 'Unknown error'));
+      return false;
+    }
+    tab.format = documentFormat(result.format);
+    tab.missing = false;
     tab.savedContent = tab.doc.getValue();
     setTabDirty(tab, false);
+    flashStatus(L().ui.saved);
     return true;
   }
   return saveFileAs();
@@ -475,24 +1120,148 @@ async function saveFile() {
 async function saveFileAs() {
   const tab = activeTab();
   if (!tab) return false;
-  const filePath = await window.api.saveFileAs(tab.doc.getValue(), tab.filePath || `${L().ui.untitled}.md`);
-  if (!filePath) return false;
-  tab.filePath = filePath;
-  setDocBaseUrl(filePath);
+  const result = await window.api.saveFileAs(tab.doc.getValue(), tab.filePath || `${L().ui.untitled}.md`, tab.format);
+  if (!result) return false;
+  if (result.error) {
+    flashStatus(L().ui.saveFailed.replace('{error}', result.error));
+    return false;
+  }
+  tab.filePath = result.filePath;
+  tab.format = documentFormat(result.format);
+  tab.missing = false;
+  setDocBaseUrl(result.filePath);
   tab.savedContent = tab.doc.getValue();
   setTabDirty(tab, false);
   updateStatus();
+  flashStatus(L().ui.saved);
   return true;
+}
+
+async function openHistory() {
+  const tab = activeTab();
+  historyModal.hidden = false;
+  historyList.innerHTML = '';
+  const entries = tab?.filePath ? await window.api.listHistory(tab.filePath) : [];
+  if (entries.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'history-empty';
+    empty.textContent = L().ui.noHistory;
+    historyList.appendChild(empty);
+    return;
+  }
+  entries.forEach((entry) => {
+    const button = document.createElement('button');
+    button.className = 'history-item';
+    const time = document.createElement('time');
+    time.textContent = new Date(entry.createdAt).toLocaleString(lang);
+    const size = document.createElement('span');
+    size.textContent = L().ui.chars.replace('{n}', entry.size);
+    button.append(time, size);
+    button.addEventListener('click', async () => {
+      if (!(await window.api.confirmDiscard(L().ui.restoreVersion))) return;
+      const content = await window.api.readHistory(tab.filePath, entry.id);
+      if (typeof content !== 'string') return;
+      const lastLine = cm.lastLine();
+      cm.replaceRange(content, { line: 0, ch: 0 }, { line: lastLine, ch: cm.getLine(lastLine).length }, '+history');
+      historyModal.hidden = true;
+      cm.focus();
+    });
+    historyList.appendChild(button);
+  });
+}
+
+function closeHistory() {
+  historyModal.hidden = true;
+  cm.focus();
+}
+
+let externalDiffResolver = null;
+
+function resolveExternalDiff(loadLatest) {
+  if (!externalDiffResolver) return;
+  const resolve = externalDiffResolver;
+  externalDiffResolver = null;
+  diffModal.hidden = true;
+  resolve(loadLatest);
+}
+
+function showExternalDiff(filePath, currentContent, diskContent) {
+  if (externalDiffResolver) resolveExternalDiff(false);
+  diffPath.textContent = filePath;
+  diffContent.innerHTML = '';
+  window.api.diffLines(currentContent, diskContent).forEach((row) => {
+    const rowElement = document.createElement('div');
+    rowElement.className = `diff-row ${row.type}`;
+    for (const side of ['left', 'right']) {
+      const cell = document.createElement('div');
+      cell.className = 'diff-cell';
+      const number = document.createElement('span');
+      number.className = 'diff-line-number';
+      number.textContent = row[`${side}Line`] ?? '';
+      const text = document.createElement('span');
+      text.className = 'diff-line-text';
+      text.textContent = row[`${side}Text`] || ' ';
+      cell.append(number, text);
+      rowElement.appendChild(cell);
+    }
+    diffContent.appendChild(rowElement);
+  });
+  diffModal.hidden = false;
+  return new Promise((resolve) => { externalDiffResolver = resolve; });
+}
+
+diffKeep.addEventListener('click', () => resolveExternalDiff(false));
+diffLoad.addEventListener('click', () => resolveExternalDiff(true));
+
+async function ensureDocumentPath() {
+  const tab = activeTab();
+  if (!tab) return null;
+  if (!tab.filePath && !(await saveFileAs())) return null;
+  return tab.filePath;
+}
+
+function insertImageMarkdown(relativePath, alt = 'image') {
+  if (!relativePath) return;
+  cm.replaceSelection(`![${alt}](${relativePath.replace(/\\/g, '/')})`, 'end', '+image');
+  cm.focus();
+}
+
+async function importImageFile(file) {
+  const documentPath = await ensureDocumentPath();
+  if (!documentPath) return false;
+  const sourcePath = window.api.getPathForFile(file);
+  let relativePath = null;
+  if (sourcePath) relativePath = await window.api.importImage(sourcePath, documentPath);
+  else if (file.type?.startsWith('image/')) {
+    relativePath = await window.api.saveImageData(new Uint8Array(await file.arrayBuffer()), file.type, documentPath);
+  }
+  if (!relativePath) return false;
+  insertImageMarkdown(relativePath, file.name?.replace(/\.[^.]+$/, '') || 'image');
+  return true;
+}
+
+async function pasteImage(e) {
+  const imageItem = Array.from(e.clipboardData?.items || []).find((item) => item.type.startsWith('image/'));
+  if (!imageItem) return;
+  e.preventDefault();
+  const file = imageItem.getAsFile();
+  if (file) await importImageFile(file);
 }
 
 // ---- 拖放打开（把 Markdown 文件拖到窗口即在新 Tab 中打开） ----
 
 // 与 main.js 的文件关联保持一致：只接受这些扩展名
 const MD_EXTS = ['.md', '.markdown', '.txt'];
+const IMG_EXTS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'];
 
 function isMarkdownPath(p) {
   const i = p.lastIndexOf('.');
   return i >= 0 && MD_EXTS.includes(p.slice(i).toLowerCase());
+}
+
+function isImagePath(p) {
+  const i = p.lastIndexOf('.');
+  return i >= 0 && IMG_EXTS.includes(p.slice(i).toLowerCase());
 }
 
 // 用计数器抵消子元素进出造成的 dragenter/dragleave 抖动
@@ -532,15 +1301,21 @@ window.addEventListener('drop', async (e) => {
   let lastIndex = -1;
   for (const file of Array.from(e.dataTransfer.files)) {
     const filePath = window.api.getPathForFile(file);
-    if (!filePath || !isMarkdownPath(filePath)) continue;
-    const result = await window.api.readFile(filePath);
-    if (result) {
-      openInNewTab(result.filePath, result.content);
-      lastIndex = activeIndex;
+    if (!filePath) continue;
+    if (isMarkdownPath(filePath)) {
+      const result = await window.api.readFile(filePath);
+      if (result) {
+        openInNewTab(result.filePath, result.content, result.format);
+        lastIndex = activeIndex;
+      }
+    } else if (isImagePath(filePath)) {
+      await importImageFile(file);
     }
   }
   if (lastIndex >= 0) activateTab(lastIndex);
 }, true);
+
+cm.getWrapperElement().addEventListener('paste', pasteImage, true);
 
 // ---- 导出 ----
 
@@ -634,9 +1409,38 @@ document.getElementById('btn-save-as').addEventListener('click', saveFileAs);
 document.getElementById('btn-export-html').addEventListener('click', doExportHtml);
 document.getElementById('btn-export-pdf').addEventListener('click', doExportPdf);
 document.getElementById('btn-print').addEventListener('click', doPrint);
+document.getElementById('btn-outline').addEventListener('click', toggleOutline);
+document.getElementById('btn-settings').addEventListener('click', openSettings);
 viewButtons.edit.addEventListener('click', () => setView('edit'));
 viewButtons.split.addEventListener('click', () => setView('split'));
 viewButtons.preview.addEventListener('click', () => setView('preview'));
+document.getElementById('formatbar').addEventListener('click', (e) => {
+  const button = e.target.closest('[data-format]');
+  if (button) applyFormat(button.dataset.format);
+});
+autoSaveToggle.addEventListener('click', () => {
+  autoSaveEnabled = !autoSaveEnabled;
+  persistEditorSettings();
+  autoSaveToggle.setAttribute('aria-pressed', String(autoSaveEnabled));
+  if (autoSaveEnabled) scheduleAutoSave(activeTab());
+  else {
+    autoSaveTimers.forEach((timer) => clearTimeout(timer));
+    autoSaveTimers.clear();
+  }
+});
+historyClose.addEventListener('click', closeHistory);
+historyModal.addEventListener('click', (e) => { if (e.target === historyModal) closeHistory(); });
+settingsClose.addEventListener('click', closeSettings);
+settingsCancel.addEventListener('click', closeSettings);
+settingsSave.addEventListener('click', saveSettings);
+settingsModal.addEventListener('click', (e) => { if (e.target === settingsModal) closeSettings(); });
+gotoClose.addEventListener('click', closeGoToLine);
+gotoCancel.addEventListener('click', closeGoToLine);
+gotoSubmit.addEventListener('click', goToLine);
+gotoInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); goToLine(); }
+  else if (e.key === 'Escape') { e.preventDefault(); closeGoToLine(); }
+});
 
 window.api.onMenu((action) => {
   ({
@@ -649,6 +1453,11 @@ window.api.onMenu((action) => {
     'print': doPrint,
     'undo': () => cm.undo(),
     'redo': () => cm.redo(),
+    'find': openFind,
+    'replace': openReplace,
+    'history': openHistory,
+    'settings': openSettings,
+    'go-to-line': openGoToLine,
     'cut': cutSelection,
     'copy': copySelection,
     'paste': pasteClipboard,
@@ -660,19 +1469,26 @@ window.api.onMenu((action) => {
 });
 
 // 双击 .md 文件 / 单实例转发过来的文件：在新 Tab 中打开
-window.api.onDocLoad(({ filePath, content }) => {
-  openInNewTab(filePath, content);
+window.api.onDocLoad(({ filePath, content, format }) => {
+  openInNewTab(filePath, content, format);
 });
 
 let externalChangeQueue = Promise.resolve();
-window.api.onExternalFileChange(({ filePath, content }) => {
+window.api.onExternalFileChange(({ filePath, content, format }) => {
   externalChangeQueue = externalChangeQueue.then(async () => {
     const index = tabs.findIndex((tab) => tab.filePath === filePath);
     if (index < 0) return;
     const tab = tabs[index];
-    if (content === tab.savedContent) return;
+    tab.format = documentFormat(format);
+    tab.missing = false;
+    if (content === tab.savedContent) {
+      setTabDirty(tab, tab.doc.getValue() !== tab.savedContent);
+      scheduleSessionSave();
+      return;
+    }
 
-    const loadLatest = await window.api.confirmExternalChange(filePath, tab.dirty);
+    const loadLatest = await showExternalDiff(filePath, tab.doc.getValue(), content);
+    tab.missing = false;
     if (loadLatest) {
       tab.savedContent = content;
       tab.doc.setValue(content);
@@ -685,6 +1501,41 @@ window.api.onExternalFileChange(({ filePath, content }) => {
       // 保留编辑器内容，但把新的磁盘内容作为比较基线，使当前版本保持“未保存”状态。
       tab.savedContent = content;
       setTabDirty(tab, tab.doc.getValue() !== content);
+    }
+    scheduleSessionSave();
+  }).catch(() => {});
+});
+
+window.api.onExternalFileMissing(({ filePath }) => {
+  externalChangeQueue = externalChangeQueue.then(async () => {
+    const index = tabs.findIndex((tab) => tab.filePath === filePath);
+    if (index < 0) return;
+    const tab = tabs[index];
+    tab.missing = true;
+    setTabDirty(tab, true);
+    const action = await window.api.handleMissingFile(filePath, tab.dirty);
+    if (action === 'locate') {
+      const located = await window.api.locateFile(filePath);
+      if (!located) return;
+      const loadLocated = located.content === tab.doc.getValue()
+        ? true
+        : await showExternalDiff(located.filePath, tab.doc.getValue(), located.content);
+      tab.filePath = located.filePath;
+      tab.format = documentFormat(located.format);
+      tab.savedContent = located.content;
+      tab.missing = false;
+      if (loadLocated) tab.doc.setValue(located.content);
+      setTabDirty(tab, tab.doc.getValue() !== located.content);
+      if (tab === activeTab()) {
+        setDocBaseUrl(tab.filePath);
+        render();
+        updateStatus();
+      }
+    } else if (action === 'save-as') {
+      activateTab(index);
+      await saveFileAs();
+    } else if (action === 'close') {
+      removeTab(index);
     }
     scheduleSessionSave();
   }).catch(() => {});
@@ -725,7 +1576,10 @@ window.api.onDiscardThenClose(async () => {
 
 async function initialize() {
   applyTheme();
+  applyEditorSettings();
   if (!(await restorePreviousSession())) newFile();
+  setView(editorSettings.defaultView);
+  if (localStorage.getItem('outlineVisible') === 'true') toggleOutline();
   applyLang();
   window.api.sessionReady(); // 会话恢复完毕后，主进程才能安全转发双击打开的文件
 }

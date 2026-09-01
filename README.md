@@ -11,14 +11,27 @@ A clean, cross-platform (Windows / macOS) Markdown editor built on Electron.
 ## Features
 
 - CodeMirror editor: Markdown syntax highlighting, automatic list continuation, Tab indentation
+- Find and replace with match counts, case/whole-word/regex options, and Replace All
+- Markdown formatting bar for emphasis, headings, quotes, code, links, and lists
 - Live preview with code block highlighting via highlight.js (Edit / Split / Preview-only views, switch with Ctrl+1/2/3)
+- Safe preview that blocks executable raw HTML and unsafe URLs; external links open in the system browser
+- Document outline with heading navigation
 - New file (Ctrl+N), Open (Ctrl+O), Save (Ctrl+S), Save As (Ctrl+Shift+S)
+- Multi-tab editing, recent files, and startup recovery of tabs and unsaved drafts
+- Paste screenshots or drop images to store them beside the document and insert relative paths
+- Optional auto save and up to 20 local versions retained before file overwrites
+- Atomic saves that safely replace files only after a complete write and report failures without damaging the original
+- Preservation of UTF-8/UTF-16 encoding, BOM, and CRLF/LF line endings
 - Export to HTML (Ctrl+E) / Export to PDF (Ctrl+Shift+E), exported content includes code highlighting styles
-- Icon toolbar + status bar (file path, word count, export notifications)
-- Internationalization: defaults to English, switchable to 中文 / 日本語 / Français / 한국어 / Deutsch (menus, dialogs, and UI all follow the selected language, with the choice persisted)
+- Icon toolbar + detailed status bar (words, characters, lines, cursor position, and selection)
+- Internationalization: defaults to English, switchable to 中文 / 日本語 / Français / 한국어 / Deutsch / Español / Português (Brasil) / Русский / Italiano (menus, dialogs, and UI all follow the selected language, with the choice persisted)
 - Themes: System (follows OS) / Light / Dark, with coordinated colors for the editor and preview
 - Double-click .md / .markdown files in the system to open directly in this app (installer build only)
-- Unsaved changes protection: prompts to save before close, new, or open
+- Unsaved changes protection on quit plus crash recovery for drafts
+- External file change detection with a choice to load disk content or keep local edits
+- Side-by-side external-change diffs; deleted or moved files can be located, saved elsewhere, closed, or kept open
+- Editor settings for line numbers, wrapping, tab size, font size, default view, and auto save
+- Go to Line (Ctrl/Cmd+L)
 - Single-instance mode: double-clicking a file again reuses the already-open window
 
 ## Development
@@ -26,6 +39,7 @@ A clean, cross-platform (Windows / macOS) Markdown editor built on Electron.
 ```bash
 npm install
 npm start
+npm test
 ```
 
 ## Packaging
@@ -48,11 +62,14 @@ Notes:
 ```
 main.js              Main process: window, i18n menus, file dialogs, HTML/PDF export, file association, single instance
 preload.js           contextBridge security bridge + highlight.js highlighting service
-locales.js           Six-language dictionary (shared by main and renderer processes)
+locales.js           Ten-language dictionary (shared by main and renderer processes)
 renderer/index.html  UI layout (icon toolbar, CodeMirror, theme/language switching)
 renderer/app.js      Editor logic, live preview (marked + hljs), i18n, theme switching
 renderer/style.css   App styles (CSS variables for light/dark themes)
 renderer/export.css  Standalone styles for HTML/PDF export
+lib/file-utils.js     Encoding, line-ending detection, and atomic saves
+lib/diff-utils.js     Line diff calculation for external changes
+test/                 Node automated tests
 sample.md            Test document
 ```
 
@@ -86,4 +103,3 @@ Technical notes:
 ## 📄 License
 
 MIT — use it freely for both perosnal or commercial.
-

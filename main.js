@@ -1,11 +1,18 @@
-const { app, BrowserWindow, clipboard, dialog, ipcMain, Menu } = require('electron');
+const { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell } = require('electron');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const os = require('os');
+const crypto = require('crypto');
 const fs = require('fs/promises');
 const LOCALES = require('./locales');
+const { DEFAULT_FORMAT, normalizeFormat, readDocument, writeDocument } = require('./lib/file-utils');
 
 const MD_EXTS = ['.md', '.markdown', '.txt'];
+const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg']);
+const IMAGE_MIME_EXT = new Map([
+  ['image/png', '.png'], ['image/jpeg', '.jpg'], ['image/gif', '.gif'],
+  ['image/webp', '.webp'], ['image/svg+xml', '.svg']
+]);
 
 let mainWindow = null;
 let pendingOpenPath = null; // 窗口就绪前收到的待打开文件（双击关联文件）
@@ -18,6 +25,43 @@ const filesBeingSaved = new Set();
 let checkingWatchedFiles = false;
 
 const t = () => LOCALES[currentLang] || LOCALES.en;
+const isTrustedSender = (event) => BrowserWindow.fromWebContents(event.sender) === mainWindow;
+
+// ---- 本地版本历史 ----
+const HISTORY_MAX = 20;
+const historyRoot = () => path.join(app.getPath('userData'), 'history');
+
+function historyDirectory(filePath) {
+  return path.join(historyRoot(), crypto.createHash('sha256').update(filePath).digest('hex'));
+}
+
+async function createHistorySnapshot(filePath, nextContent) {
+  try {
+    const { content } = await readDocument(filePath);
+    if (content === nextContent) return;
+    const dir = historyDirectory(filePath);
+    await fs.mkdir(dir, { recursive: true });
+    const snapshot = { filePath, createdAt: new Date().toISOString(), content };
+    await fs.writeFile(path.join(dir, `${Date.now()}.json`), JSON.stringify(snapshot), 'utf-8');
+    const entries = (await fs.readdir(dir)).filter((name) => /^\d+\.json$/.test(name)).sort().reverse();
+    await Promise.all(entries.slice(HISTORY_MAX).map((name) => fs.unlink(path.join(dir, name))));
+  } catch (err) {
+    if (err.code !== 'ENOENT') console.warn('Failed to save document history:', err.message);
+  }
+}
+
+async function listHistory(filePath) {
+  try {
+    const dir = historyDirectory(filePath);
+    const entries = (await fs.readdir(dir)).filter((name) => /^\d+\.json$/.test(name)).sort().reverse();
+    return Promise.all(entries.map(async (id) => {
+      const snapshot = JSON.parse(await fs.readFile(path.join(dir, id), 'utf-8'));
+      return { id, createdAt: snapshot.createdAt, size: snapshot.content.length };
+    }));
+  } catch {
+    return [];
+  }
+}
 
 // ---- 最近打开的文件 ----
 let recentFiles = [];
@@ -77,6 +121,7 @@ function sanitizeSession(value) {
       savedContent: typeof tab?.savedContent === 'string'
         ? tab.savedContent
         : (dirty ? '' : content),
+      format: normalizeFormat(tab?.format),
       dirty
     };
   });
@@ -95,9 +140,10 @@ async function loadSession() {
     await Promise.all(session.tabs.map(async (tab) => {
       if (!tab.filePath) return;
       try {
-        const diskContent = await fs.readFile(tab.filePath, 'utf-8');
-        if (!tab.dirty) tab.content = diskContent;
-        tab.savedContent = diskContent;
+        const diskDocument = await readDocument(tab.filePath);
+        if (!tab.dirty) tab.content = diskDocument.content;
+        tab.savedContent = diskDocument.content;
+        tab.format = diskDocument.format;
       } catch {
         // 文件在应用关闭期间被移动/删除时，保留缓存副本并标为未保存，避免内容丢失。
         tab.dirty = true;
@@ -131,6 +177,12 @@ function sameFileVersion(a, b) {
   return a && b && a.mtimeMs === b.mtimeMs && a.ctimeMs === b.ctimeMs && a.size === b.size;
 }
 
+function sameDocumentFormat(a, b) {
+  const left = normalizeFormat(a);
+  const right = normalizeFormat(b);
+  return left.encoding === right.encoding && left.bom === right.bom && left.eol === right.eol;
+}
+
 async function syncWatchedFiles(tabs) {
   const wantedTabs = tabs.filter((tab) => typeof tab?.filePath === 'string' && tab.filePath);
   const wanted = new Set(wantedTabs.map((tab) => tab.filePath));
@@ -141,11 +193,11 @@ async function syncWatchedFiles(tabs) {
     const filePath = tab.filePath;
     if (watchedFiles.has(filePath)) return;
     try {
-      const [version, content] = await Promise.all([fileVersion(filePath), fs.readFile(filePath, 'utf-8')]);
-      watchedFiles.set(filePath, { version, content });
-      if (typeof tab.savedContent === 'string' && content !== tab.savedContent &&
+      const [version, document] = await Promise.all([fileVersion(filePath), readDocument(filePath)]);
+      watchedFiles.set(filePath, { version, content: document.content, format: document.format, missing: false });
+      if (typeof tab.savedContent === 'string' && document.content !== tab.savedContent &&
           mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('file:external-change', { filePath, content });
+        mainWindow.webContents.send('file:external-change', { filePath, ...document });
       }
     } catch {
       // 文件暂时不可访问时留待下一次会话同步。
@@ -153,9 +205,9 @@ async function syncWatchedFiles(tabs) {
   }));
 }
 
-async function updateWatchedFile(filePath, content) {
+async function updateWatchedFile(filePath, content, format) {
   try {
-    watchedFiles.set(filePath, { version: await fileVersion(filePath), content });
+    watchedFiles.set(filePath, { version: await fileVersion(filePath), content, format: normalizeFormat(format), missing: false });
   } catch {
     watchedFiles.delete(filePath);
   }
@@ -169,14 +221,21 @@ async function checkWatchedFiles() {
       try {
         if (filesBeingSaved.has(filePath)) return;
         const version = await fileVersion(filePath);
-        if (sameFileVersion(version, known.version)) return;
-        const content = await fs.readFile(filePath, 'utf-8');
-        watchedFiles.set(filePath, { version, content });
-        if (content !== known.content && mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('file:external-change', { filePath, content });
+        if (!known.missing && sameFileVersion(version, known.version)) return;
+        const wasMissing = !!known.missing;
+        const document = await readDocument(filePath);
+        watchedFiles.set(filePath, { version, content: document.content, format: document.format, missing: false });
+        if ((wasMissing || document.content !== known.content || !sameDocumentFormat(document.format, known.format)) &&
+            mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('file:external-change', { filePath, ...document });
         }
-      } catch {
-        // 删除、移动或短暂锁定不属于“内容被修改”，恢复可访问后再继续检测。
+      } catch (error) {
+        if (error.code === 'ENOENT' && !known.missing) {
+          known.missing = true;
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('file:external-missing', { filePath });
+          }
+        }
       }
     }));
   } finally {
@@ -193,14 +252,39 @@ function fileFromArgv(argv) {
   return null;
 }
 
+function imageDestination(documentPath, originalName, fallbackExt = '.png') {
+  const docDir = path.dirname(documentPath);
+  const docBase = path.basename(documentPath, path.extname(documentPath));
+  const assetDir = path.join(docDir, `${docBase}.assets`);
+  const rawExt = path.extname(originalName || '').toLowerCase();
+  const ext = IMAGE_EXTS.has(rawExt) ? rawExt : fallbackExt;
+  const rawBase = path.basename(originalName || 'image', rawExt).replace(/[^a-z0-9._-]+/gi, '-').replace(/^-+|-+$/g, '');
+  const base = rawBase || 'image';
+  const stamp = new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14);
+  return {
+    assetDir,
+    filePath: path.join(assetDir, `${base}-${stamp}-${Math.random().toString(36).slice(2, 7)}${ext}`),
+    relativeDir: `${docBase}.assets`
+  };
+}
+
+async function copyImageToAssets(sourcePath, documentPath) {
+  const ext = path.extname(sourcePath).toLowerCase();
+  if (!IMAGE_EXTS.has(ext)) return null;
+  const destination = imageDestination(documentPath, path.basename(sourcePath), ext);
+  await fs.mkdir(destination.assetDir, { recursive: true });
+  await fs.copyFile(sourcePath, destination.filePath);
+  return `${destination.relativeDir}/${path.basename(destination.filePath)}`;
+}
+
 async function loadFileIntoWindow(filePath) {
   if (!mainWindow || !rendererReady) {
     pendingOpenPath = filePath;
     return;
   }
   try {
-    const content = await fs.readFile(filePath, 'utf-8');
-    mainWindow.webContents.send('doc:load', { filePath, content });
+    const document = await readDocument(filePath);
+    mainWindow.webContents.send('doc:load', { filePath, ...document });
     addRecent(filePath);
   } catch (err) {
     dialog.showErrorBox(t().dialog.openFailed, `${filePath}\n${err.message}`);
@@ -287,6 +371,7 @@ function buildMenu() {
         { type: 'separator' },
         { label: m.save, accelerator: 'CmdOrCtrl+S', click: () => send('save') },
         { label: m.saveAs, accelerator: 'CmdOrCtrl+Shift+S', click: () => send('save-as') },
+        { label: m.history, click: () => send('history') },
         { type: 'separator' },
         { label: m.exportHtml, accelerator: 'CmdOrCtrl+E', click: () => send('export-html') },
         { label: m.exportPdf, accelerator: 'CmdOrCtrl+Shift+E', click: () => send('export-pdf') },
@@ -303,10 +388,15 @@ function buildMenu() {
         { label: m.undo, accelerator: 'CmdOrCtrl+Z', click: () => send('undo') },
         { label: m.redo, accelerator: 'CmdOrCtrl+Shift+Z', click: () => send('redo') },
         { type: 'separator' },
+        { label: m.find, accelerator: 'CmdOrCtrl+F', click: () => send('find') },
+        { label: m.replace, accelerator: process.platform === 'darwin' ? 'Cmd+Alt+F' : 'Ctrl+H', click: () => send('replace') },
+        { type: 'separator' },
         { label: m.cut, accelerator: 'CmdOrCtrl+X', click: () => send('cut') },
         { label: m.copy, accelerator: 'CmdOrCtrl+C', click: () => send('copy') },
         { label: m.paste, accelerator: 'CmdOrCtrl+V', click: () => send('paste') },
-        { label: m.selectAll, accelerator: 'CmdOrCtrl+A', click: () => send('select-all') }
+        { label: m.selectAll, accelerator: 'CmdOrCtrl+A', click: () => send('select-all') },
+        { type: 'separator' },
+        { label: m.goToLine, accelerator: 'CmdOrCtrl+L', click: () => send('go-to-line') }
       ]
     },
     {
@@ -316,7 +406,9 @@ function buildMenu() {
         { label: m.split, accelerator: 'CmdOrCtrl+2', click: () => send('view-split') },
         { label: m.previewOnly, accelerator: 'CmdOrCtrl+3', click: () => send('view-preview') },
         { type: 'separator' },
-        { role: 'togglefullscreen', label: m.fullscreen }
+        { role: 'togglefullscreen', label: m.fullscreen },
+        { type: 'separator' },
+        { label: m.settings, click: () => send('settings') }
       ]
     }
   ];
@@ -426,6 +518,7 @@ ${bodyHtml}
 }
 
 ipcMain.handle('export:html', async (event, bodyHtml, title, suggestedName) => {
+  if (!isTrustedSender(event)) return null;
   const result = await dialog.showSaveDialog(mainWindow, {
     defaultPath: suggestedName,
     filters: [{ name: 'HTML', extensions: ['html'] }]
@@ -441,6 +534,7 @@ ipcMain.handle('export:html', async (event, bodyHtml, title, suggestedName) => {
 });
 
 ipcMain.handle('export:pdf', async (event, bodyHtml, title, suggestedName) => {
+  if (!isTrustedSender(event)) return null;
   const result = await dialog.showSaveDialog(mainWindow, {
     defaultPath: suggestedName,
     filters: [{ name: 'PDF', extensions: ['pdf'] }]
@@ -470,6 +564,7 @@ ipcMain.handle('export:pdf', async (event, bodyHtml, title, suggestedName) => {
 });
 
 ipcMain.handle('doc:print', async (event, bodyHtml, title) => {
+  if (!isTrustedSender(event)) return false;
   // 打开可见的预览窗口（与导出同一套排版），由页面内的"打印"按钮触发 window.print()。
   // 这样用户能先预览，取消打印也不会报错。
   const tmpFile = path.join(os.tmpdir(), `md-print-${Date.now()}.html`);
@@ -496,6 +591,7 @@ ipcMain.handle('doc:print', async (event, bodyHtml, title) => {
 // ---- IPC ----
 
 ipcMain.on('settings:lang', (event, lang) => {
+  if (!isTrustedSender(event)) return;
   if (LOCALES[lang]) {
     currentLang = lang;
     buildMenu();
@@ -565,7 +661,40 @@ ipcMain.handle('clipboard:read-text', (event) => {
   return clipboard.readText();
 });
 
-ipcMain.handle('file:open', async () => {
+ipcMain.handle('clipboard:read-image', (event) => {
+  if (!isTrustedSender(event)) return null;
+  const image = clipboard.readImage();
+  return image.isEmpty() ? null : image.toPNG();
+});
+
+ipcMain.handle('image:import', async (event, sourcePath, documentPath) => {
+  if (!isTrustedSender(event) || typeof sourcePath !== 'string' || typeof documentPath !== 'string') return null;
+  return copyImageToAssets(sourcePath, documentPath);
+});
+
+ipcMain.handle('image:choose', async (event, documentPath) => {
+  if (!isTrustedSender(event) || typeof documentPath !== 'string') return null;
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openFile'],
+    filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'] }]
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  return copyImageToAssets(result.filePaths[0], documentPath);
+});
+
+ipcMain.handle('image:save-data', async (event, bytes, mimeType, documentPath) => {
+  if (!isTrustedSender(event) || typeof documentPath !== 'string') return null;
+  const ext = IMAGE_MIME_EXT.get(String(mimeType).toLowerCase());
+  const data = Buffer.from(bytes || []);
+  if (!ext || data.length === 0 || data.length > 25 * 1024 * 1024) return null;
+  const destination = imageDestination(documentPath, `pasted-image${ext}`, ext);
+  await fs.mkdir(destination.assetDir, { recursive: true });
+  await fs.writeFile(destination.filePath, data);
+  return `${destination.relativeDir}/${path.basename(destination.filePath)}`;
+});
+
+ipcMain.handle('file:open', async (event) => {
+  if (!isTrustedSender(event)) return null;
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openFile'],
     filters: [
@@ -575,63 +704,104 @@ ipcMain.handle('file:open', async () => {
   });
   if (result.canceled || result.filePaths.length === 0) return null;
   const filePath = result.filePaths[0];
-  const content = await fs.readFile(filePath, 'utf-8');
+  const document = await readDocument(filePath);
   addRecent(filePath);
-  return { filePath, content };
+  return { filePath, ...document };
 });
 
 // 拖放打开：渲染进程拿到文件路径后读取内容（路径由 preload 的 webUtils 解析）
 ipcMain.handle('file:read', async (event, filePath) => {
+  if (!isTrustedSender(event)) return null;
   try {
-    const content = await fs.readFile(filePath, 'utf-8');
+    const document = await readDocument(filePath);
     addRecent(filePath);
-    return { filePath, content };
+    return { filePath, ...document };
   } catch (err) {
     dialog.showErrorBox(t().dialog.openFailed, `${filePath}\n${err.message}`);
     return null;
   }
 });
 
-ipcMain.handle('file:save', async (event, filePath, content) => {
+ipcMain.handle('file:locate', async (event, originalPath) => {
+  if (!isTrustedSender(event)) return null;
+  const result = await dialog.showOpenDialog(mainWindow, {
+    defaultPath: originalPath,
+    properties: ['openFile'],
+    filters: [{ name: 'Markdown', extensions: ['md', 'markdown', 'txt'] }]
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  const filePath = result.filePaths[0];
+  const document = await readDocument(filePath);
+  addRecent(filePath);
+  return { filePath, ...document };
+});
+
+ipcMain.handle('dialog:file-missing', async (event, filePath, dirty) => {
+  if (!isTrustedSender(event)) return 'keep';
+  const d = t().dialog;
+  const result = await dialog.showMessageBox(mainWindow, {
+    type: 'warning',
+    buttons: [d.locateFile, t().menu.saveAs, d.closeTab, d.keepOpen],
+    defaultId: 0,
+    cancelId: 3,
+    title: d.fileMissingTitle,
+    message: d.fileMissing.replace('{name}', path.basename(filePath)),
+    detail: dirty ? d.fileMissingDirty : undefined
+  });
+  return ['locate', 'save-as', 'close', 'keep'][result.response] || 'keep';
+});
+
+ipcMain.handle('file:save', async (event, filePath, content, format, silent) => {
+  if (!isTrustedSender(event)) return { ok: false, error: 'Untrusted sender' };
   filesBeingSaved.add(filePath);
   try {
-    await fs.writeFile(filePath, content, 'utf-8');
-    await updateWatchedFile(filePath, content);
-    return true;
+    await createHistorySnapshot(filePath, content);
+    const savedFormat = await writeDocument(filePath, content, format || DEFAULT_FORMAT);
+    await updateWatchedFile(filePath, content, savedFormat);
+    return { ok: true, format: savedFormat };
+  } catch (error) {
+    if (!silent) dialog.showErrorBox(t().dialog.saveFailedTitle, `${filePath}\n${error.message}`);
+    return { ok: false, error: error.message };
   } finally {
     filesBeingSaved.delete(filePath);
   }
 });
 
-ipcMain.handle('file:save-as', async (event, content, suggestedName) => {
+ipcMain.handle('history:list', (event, filePath) => {
+  if (!isTrustedSender(event) || typeof filePath !== 'string') return [];
+  return listHistory(filePath);
+});
+
+ipcMain.handle('history:read', async (event, filePath, id) => {
+  if (!isTrustedSender(event) || typeof filePath !== 'string' || !/^\d+\.json$/.test(id)) return null;
+  try {
+    const snapshot = JSON.parse(await fs.readFile(path.join(historyDirectory(filePath), id), 'utf-8'));
+    return snapshot.filePath === filePath && typeof snapshot.content === 'string' ? snapshot.content : null;
+  } catch {
+    return null;
+  }
+});
+
+ipcMain.handle('file:save-as', async (event, content, suggestedName, format) => {
+  if (!isTrustedSender(event)) return null;
   const result = await dialog.showSaveDialog(mainWindow, {
     defaultPath: suggestedName,
     filters: [{ name: 'Markdown', extensions: ['md'] }]
   });
   if (result.canceled || !result.filePath) return null;
-  await fs.writeFile(result.filePath, content, 'utf-8');
-  await updateWatchedFile(result.filePath, content);
-  addRecent(result.filePath);
-  return result.filePath;
-});
-
-ipcMain.handle('dialog:external-change', async (event, filePath, hasUnsavedChanges) => {
-  if (BrowserWindow.fromWebContents(event.sender) !== mainWindow) return false;
-  const d = t().dialog;
-  const fileName = path.basename(filePath);
-  const result = await dialog.showMessageBox(mainWindow, {
-    type: 'question',
-    buttons: [d.loadLatest, d.keepCurrent],
-    defaultId: 0,
-    cancelId: 1,
-    title: d.externalChangedTitle,
-    message: d.externalChanged.replace('{name}', fileName),
-    detail: hasUnsavedChanges ? d.externalChangedDirty : undefined
-  });
-  return result.response === 0;
+  try {
+    const savedFormat = await writeDocument(result.filePath, content, format || DEFAULT_FORMAT);
+    await updateWatchedFile(result.filePath, content, savedFormat);
+    addRecent(result.filePath);
+    return { filePath: result.filePath, format: savedFormat };
+  } catch (error) {
+    dialog.showErrorBox(t().dialog.saveFailedTitle, `${result.filePath}\n${error.message}`);
+    return { error: error.message };
+  }
 });
 
 ipcMain.handle('dialog:confirm', async (event, message) => {
+  if (!isTrustedSender(event)) return false;
   const d = t().dialog;
   const result = await dialog.showMessageBox(mainWindow, {
     type: 'warning',
@@ -644,10 +814,24 @@ ipcMain.handle('dialog:confirm', async (event, message) => {
 });
 
 ipcMain.on('doc:dirty-changed', (event, dirty) => {
+  if (!isTrustedSender(event)) return;
   isDirty = dirty;
 });
 
-ipcMain.on('app:close-after-save', () => {
+ipcMain.on('app:close-after-save', (event) => {
+  if (!isTrustedSender(event)) return;
   closingAfterSave = true;
   if (mainWindow) mainWindow.close();
+});
+
+ipcMain.handle('app:open-external', async (event, href) => {
+  if (!isTrustedSender(event) || typeof href !== 'string') return false;
+  try {
+    const url = new URL(href);
+    if (!['http:', 'https:', 'mailto:'].includes(url.protocol)) return false;
+    await shell.openExternal(url.href);
+    return true;
+  } catch {
+    return false;
+  }
 });

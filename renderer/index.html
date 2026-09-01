@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file:; style-src 'self' 'unsafe-inline' file:; img-src 'self' file: data: https: http:; font-src 'self' file: data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>Markdown Editor</title>
   <link rel="stylesheet" href="../node_modules/codemirror/lib/codemirror.css">
   <link rel="stylesheet" href="../node_modules/codemirror/theme/material-darker.css">
@@ -35,6 +36,13 @@
       <svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
     </button>
 
+    <button id="btn-outline" class="icon-btn">
+      <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1"/><circle cx="3" cy="12" r="1"/><circle cx="3" cy="18" r="1"/></svg>
+    </button>
+    <button id="btn-settings" class="icon-btn">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.12.38.34.72.64 1 .3.28.68.42 1.06.4h.1v4h-.1a1.7 1.7 0 0 0-1.7.6z"/></svg>
+    </button>
+
     <span class="spacer"></span>
 
     <div class="view-switch">
@@ -59,10 +67,45 @@
     <select id="lang-select"></select>
   </div>
 
+  <div id="formatbar">
+    <button class="format-btn" data-format="bold" type="button"><strong>B</strong></button>
+    <button class="format-btn" data-format="italic" type="button"><em>I</em></button>
+    <button class="format-btn" data-format="strike" type="button"><s>S</s></button>
+    <span class="divider"></span>
+    <button class="format-btn" data-format="heading" type="button">H2</button>
+    <button class="format-btn" data-format="quote" type="button">❯</button>
+    <button class="format-btn format-code" data-format="code" type="button">&lt;/&gt;</button>
+    <button class="format-btn" data-format="link" type="button">🔗</button>
+    <button class="format-btn" data-format="image" type="button">🖼</button>
+    <span class="divider"></span>
+    <button class="format-btn" data-format="bullet" type="button">•</button>
+    <button class="format-btn" data-format="numbered" type="button">1.</button>
+    <button class="format-btn" data-format="task" type="button">☑</button>
+  </div>
+
   <div id="tabbar"></div>
 
   <div id="main" class="mode-split">
-    <div id="editor-host"></div>
+    <aside id="outline" class="outline-panel" hidden></aside>
+    <div id="editor-host">
+      <div id="find-bar" class="find-bar" hidden>
+        <div class="find-row">
+          <input id="find-input" type="search" autocomplete="off" spellcheck="false">
+          <button id="find-case" class="find-option" type="button" aria-pressed="false">Aa</button>
+          <button id="find-word" class="find-option" type="button" aria-pressed="false">W</button>
+          <button id="find-regex" class="find-option" type="button" aria-pressed="false">.*</button>
+          <span id="find-count" class="find-count"></span>
+          <button id="find-prev" class="find-btn" type="button" aria-label="Previous match">&#8593;</button>
+          <button id="find-next" class="find-btn" type="button" aria-label="Next match">&#8595;</button>
+          <button id="find-close" class="find-btn find-close" type="button" aria-label="Close">&#215;</button>
+        </div>
+        <div id="replace-row" class="find-row" hidden>
+          <input id="replace-input" type="text" autocomplete="off" spellcheck="false">
+          <button id="replace-one" class="replace-btn" type="button"></button>
+          <button id="replace-all" class="replace-btn" type="button"></button>
+        </div>
+      </div>
+    </div>
     <div id="splitter"></div>
     <div id="preview" class="markdown-body"></div>
   </div>
@@ -71,7 +114,58 @@
     <span id="status-path"></span>
     <span id="status-msg"></span>
     <span class="spacer"></span>
+    <button id="autosave-toggle" type="button" aria-pressed="false"></button>
     <span id="status-count"></span>
+  </div>
+
+  <div id="history-modal" class="modal-backdrop" hidden>
+    <section class="modal-card" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h2 id="history-title"></h2>
+        <button id="history-close" type="button">&#215;</button>
+      </div>
+      <div id="history-list" class="history-list"></div>
+    </section>
+  </div>
+
+  <div id="diff-modal" class="modal-backdrop" hidden>
+    <section class="modal-card diff-card" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <div>
+          <h2 id="diff-title"></h2>
+          <div id="diff-path" class="diff-path"></div>
+        </div>
+      </div>
+      <div class="diff-headings"><strong id="diff-current-label"></strong><strong id="diff-disk-label"></strong></div>
+      <div id="diff-content" class="diff-content"></div>
+      <div class="modal-actions">
+        <button id="diff-keep" type="button"></button>
+        <button id="diff-load" class="primary" type="button"></button>
+      </div>
+    </section>
+  </div>
+
+  <div id="settings-modal" class="modal-backdrop" hidden>
+    <section class="modal-card settings-card" role="dialog" aria-modal="true">
+      <div class="modal-header"><h2 id="settings-title"></h2><button id="settings-close" type="button">&#215;</button></div>
+      <div class="settings-grid">
+        <label><span id="label-line-numbers"></span><input id="setting-line-numbers" type="checkbox"></label>
+        <label><span id="label-line-wrapping"></span><input id="setting-line-wrapping" type="checkbox"></label>
+        <label><span id="label-auto-save"></span><input id="setting-auto-save" type="checkbox"></label>
+        <label><span id="label-tab-size"></span><select id="setting-tab-size"><option value="2">2</option><option value="4">4</option><option value="8">8</option></select></label>
+        <label><span id="label-font-size"></span><input id="setting-font-size" type="number" min="11" max="28" step="1"></label>
+        <label><span id="label-default-view"></span><select id="setting-default-view"><option value="edit"></option><option value="split"></option><option value="preview"></option></select></label>
+      </div>
+      <div class="modal-actions"><button id="settings-cancel" type="button"></button><button id="settings-save" class="primary" type="button"></button></div>
+    </section>
+  </div>
+
+  <div id="goto-modal" class="modal-backdrop" hidden>
+    <section class="modal-card goto-card" role="dialog" aria-modal="true">
+      <div class="modal-header"><h2 id="goto-title"></h2><button id="goto-close" type="button">&#215;</button></div>
+      <div class="goto-body"><input id="goto-input" type="number" min="1" step="1"></div>
+      <div class="modal-actions"><button id="goto-cancel" type="button"></button><button id="goto-submit" class="primary" type="button"></button></div>
+    </section>
   </div>
 
   <script src="../node_modules/codemirror/lib/codemirror.js"></script>
@@ -80,6 +174,7 @@
   <script src="../node_modules/codemirror/addon/display/placeholder.js"></script>
   <script src="../node_modules/codemirror/addon/edit/continuelist.js"></script>
   <script src="../node_modules/codemirror/addon/selection/mark-selection.js"></script>
+  <script src="../node_modules/codemirror/addon/search/searchcursor.js"></script>
   <script src="../node_modules/marked/lib/marked.umd.js"></script>
   <script src="../node_modules/katex/dist/katex.min.js"></script>
   <script src="../locales.js"></script>

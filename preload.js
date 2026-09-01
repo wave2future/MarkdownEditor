@@ -2,19 +2,25 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron');
 const { pathToFileURL } = require('url');
 // 在 preload 里加载 highlight.js（渲染进程关闭了 nodeIntegration），common 子集覆盖约 40 种常用语言
 const hljs = require('highlight.js/lib/common');
+const { diffLines } = require('./lib/diff-utils');
 
 contextBridge.exposeInMainWorld('api', {
   openFile: () => ipcRenderer.invoke('file:open'),
   readFile: (filePath) => ipcRenderer.invoke('file:read', filePath),
+  locateFile: (originalPath) => ipcRenderer.invoke('file:locate', originalPath),
   // Electron 32+ 移除了 File.path，拖放的文件路径要通过 webUtils 获取（必须在 preload 调用）
   getPathForFile: (file) => webUtils.getPathForFile(file),
-  saveFile: (filePath, content) => ipcRenderer.invoke('file:save', filePath, content),
-  saveFileAs: (content, suggestedName) => ipcRenderer.invoke('file:save-as', content, suggestedName),
+  saveFile: (filePath, content, format, silent = false) => ipcRenderer.invoke('file:save', filePath, content, format, silent),
+  saveFileAs: (content, suggestedName, format) => ipcRenderer.invoke('file:save-as', content, suggestedName, format),
+  listHistory: (filePath) => ipcRenderer.invoke('history:list', filePath),
+  readHistory: (filePath, id) => ipcRenderer.invoke('history:read', filePath, id),
+  diffLines: (current, disk) => diffLines(current, disk),
   exportHtml: (bodyHtml, title, suggestedName) => ipcRenderer.invoke('export:html', bodyHtml, title, suggestedName),
   exportPdf: (bodyHtml, title, suggestedName) => ipcRenderer.invoke('export:pdf', bodyHtml, title, suggestedName),
   print: (bodyHtml, title) => ipcRenderer.invoke('doc:print', bodyHtml, title),
+  openExternal: (href) => ipcRenderer.invoke('app:open-external', href),
   confirmDiscard: (message) => ipcRenderer.invoke('dialog:confirm', message),
-  confirmExternalChange: (filePath, dirty) => ipcRenderer.invoke('dialog:external-change', filePath, dirty),
+  handleMissingFile: (filePath, dirty) => ipcRenderer.invoke('dialog:file-missing', filePath, dirty),
   setDirty: (dirty) => ipcRenderer.send('doc:dirty-changed', dirty),
   setLang: (lang) => ipcRenderer.send('settings:lang', lang),
   loadSession: () => ipcRenderer.invoke('session:load'),
@@ -24,9 +30,14 @@ contextBridge.exposeInMainWorld('api', {
   showPreviewContextMenu: (text) => ipcRenderer.send('preview:show-context-menu', text),
   writeClipboardText: (text) => ipcRenderer.send('clipboard:write-text', text),
   readClipboardText: () => ipcRenderer.invoke('clipboard:read-text'),
+  readClipboardImage: () => ipcRenderer.invoke('clipboard:read-image'),
+  importImage: (sourcePath, documentPath) => ipcRenderer.invoke('image:import', sourcePath, documentPath),
+  chooseImage: (documentPath) => ipcRenderer.invoke('image:choose', documentPath),
+  saveImageData: (bytes, mimeType, documentPath) => ipcRenderer.invoke('image:save-data', bytes, mimeType, documentPath),
   closeAfterSave: () => ipcRenderer.send('app:close-after-save'),
   onDocLoad: (cb) => ipcRenderer.on('doc:load', (event, data) => cb(data)),
   onExternalFileChange: (cb) => ipcRenderer.on('file:external-change', (event, data) => cb(data)),
+  onExternalFileMissing: (cb) => ipcRenderer.on('file:external-missing', (event, data) => cb(data)),
   onMenu: (cb) => ipcRenderer.on('menu', (event, action) => cb(action)),
   onPrepareClose: (cb) => ipcRenderer.on('app:prepare-close', () => cb()),
   onDiscardThenClose: (cb) => ipcRenderer.on('app:discard-then-close', () => cb()),
