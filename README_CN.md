@@ -6,7 +6,7 @@
 
 > 开发一个跨Windows和Mac平台的Markdown格式编辑器，支持编辑Markdown格式内容，Markdown格式文件预览，文件打开、保存等功能，md格式文件双击系统可以直接打开本软件打开对应的Markdown格式文件。界面简洁。
 > 
-> 需要增强功能：CodeMirror 替换 textarea 获得语法高亮、代码块高亮（highlight.js）、导出 HTML/PDF。工具栏的按钮改成直观的图标，增加国际化功能，软件默认英文，可以改成中文、日文、法文、韩文、德文、西班牙文、巴西葡萄牙文、俄文、意大利文，支持模式切换 System/Dark/Light
+> 需要增强功能：CodeMirror 替换 textarea 获得语法高亮、代码块高亮（highlight.js）、导出 HTML/PDF。工具栏的按钮改成直观的图标，增加国际化功能，软件默认英文，可以改成简体中文、繁體中文、日文、法文、韩文、德文、西班牙文、巴西葡萄牙文、俄文、意大利文，支持模式切换 System/Dark/Light
 
 ## 功能
 
@@ -24,7 +24,7 @@
 - 保留原始 UTF-8/UTF-16、BOM 和 CRLF/LF 换行格式
 - 导出 HTML（Ctrl+E）/ 导出 PDF（Ctrl+Shift+E），导出内容含代码高亮样式
 - 图标工具栏 + 状态栏（路径、字数、字符数、行数、光标行列和选区统计）
-- 国际化：默认英文，可切换中文 / 日本語 / Français / 한국어 / Deutsch / Español / Português (Brasil) / Русский / Italiano（菜单、对话框、界面全部跟随，选择持久化）
+- 国际化：默认英文，可切换简体中文 / 繁體中文 / 日本語 / Français / 한국어 / Deutsch / Español / Português (Brasil) / Русский / Italiano（菜单、对话框、界面全部跟随，选择持久化）
 - 主题：System（跟随系统）/ Light / Dark，编辑器与预览配色联动
 - 系统中双击 .md / .markdown 文件直接用本软件打开（安装版生效）
 - 未保存更改保护：退出前逐个提示保存，意外退出后恢复草稿
@@ -61,7 +61,7 @@ npm run dist:mac   # macOS，生成 dmg（需在 Mac 上执行）
 ```
 main.js              主进程：窗口、国际化菜单、文件对话框、HTML/PDF 导出、文件关联、单实例
 preload.js           contextBridge 安全桥接 + highlight.js 高亮服务
-locales.js           十语言字典（主进程与渲染进程共用）
+locales.js           十一语言字典（主进程与渲染进程共用）
 renderer/index.html  界面布局（图标工具栏、CodeMirror、主题/语言切换）
 renderer/app.js      编辑器逻辑、实时预览（marked + hljs）、国际化、主题切换
 renderer/style.css   应用样式（CSS 变量实现明暗主题）

@@ -24,7 +24,7 @@ A clean, cross-platform (Windows / macOS) Markdown editor built on Electron.
 - Preservation of UTF-8/UTF-16 encoding, BOM, and CRLF/LF line endings
 - Export to HTML (Ctrl+E) / Export to PDF (Ctrl+Shift+E), exported content includes code highlighting styles
 - Icon toolbar + detailed status bar (words, characters, lines, cursor position, and selection)
-- Internationalization: defaults to English, switchable to 中文 / 日本語 / Français / 한국어 / Deutsch / Español / Português (Brasil) / Русский / Italiano (menus, dialogs, and UI all follow the selected language, with the choice persisted)
+- Internationalization: defaults to English, switchable to 简体中文 / 繁體中文 / 日本語 / Français / 한국어 / Deutsch / Español / Português (Brasil) / Русский / Italiano (menus, dialogs, and UI all follow the selected language, with the choice persisted)
 - Themes: System (follows OS) / Light / Dark, with coordinated colors for the editor and preview
 - Double-click .md / .markdown files in the system to open directly in this app (installer build only)
 - Unsaved changes protection on quit plus crash recovery for drafts
@@ -62,7 +62,7 @@ Notes:
 ```
 main.js              Main process: window, i18n menus, file dialogs, HTML/PDF export, file association, single instance
 preload.js           contextBridge security bridge + highlight.js highlighting service
-locales.js           Ten-language dictionary (shared by main and renderer processes)
+locales.js           Eleven-language dictionary (shared by main and renderer processes)
 renderer/index.html  UI layout (icon toolbar, CodeMirror, theme/language switching)
 renderer/app.js      Editor logic, live preview (marked + hljs), i18n, theme switching
 renderer/style.css   App styles (CSS variables for light/dark themes)

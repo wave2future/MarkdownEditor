@@ -46,7 +46,7 @@ const LOCALES = {
     }
   },
   zh: {
-    name: '中文',
+    name: '简体中文',
     menu: {
       file: '文件', new: '新建', open: '打开…', save: '保存', saveAs: '另存为…',
       exportHtml: '导出 HTML…', exportPdf: '导出 PDF…', quit: '退出',
@@ -88,6 +88,51 @@ const LOCALES = {
       loadLatest: '加载最新内容', keepCurrent: '保留当前内容', settings: '设置', lineNumbers: '显示行号',
       lineWrapping: '自动换行', tabSize: 'Tab 宽度', fontSize: '编辑器字号', defaultView: '默认视图',
       goToLine: '转到行', lineNumber: '行号', go: '转到'
+    }
+  },
+  'zh-TW': {
+    name: '繁體中文',
+    menu: {
+      file: '檔案', new: '新增', open: '開啟…', save: '儲存', saveAs: '另存新檔…',
+      exportHtml: '匯出 HTML…', exportPdf: '匯出 PDF…', quit: '結束',
+      openRecent: '開啟最近使用的檔案', clearRecent: '清除最近使用的檔案', noRecent: '沒有最近使用的檔案',
+      print: '列印…', history: '版本紀錄…',
+      edit: '編輯', undo: '復原', redo: '重做', cut: '剪下', copy: '複製',
+      paste: '貼上', selectAll: '全選', find: '尋找…', replace: '取代…', goToLine: '前往行…',
+      view: '檢視', editOnly: '僅編輯器', split: '分割檢視', previewOnly: '僅預覽',
+      fullscreen: '全螢幕', settings: '設定…'
+    },
+    dialog: {
+      unsaved: '文件有尚未儲存的變更。要儲存嗎？',
+      save: '儲存', dontSave: '不儲存', cancel: '取消',
+      discard: '文件有尚未儲存的變更。要捨棄嗎？',
+      ok: '確定', openFailed: '無法開啟檔案', exportFailed: '匯出失敗', saveFailedTitle: '儲存失敗',
+      externalChangedTitle: '檔案已變更', externalChanged: '「{name}」已被其他應用程式修改。要載入最新內容嗎？',
+      externalChangedDirty: '載入後將捨棄此分頁中尚未儲存的變更。', loadLatest: '載入最新內容', keepCurrent: '保留目前內容',
+      fileMissingTitle: '找不到檔案', fileMissing: '「{name}」已被刪除或移動。', fileMissingDirty: '編輯器副本包含尚未儲存的內容。',
+      locateFile: '重新定位…', closeTab: '關閉分頁', keepOpen: '保持開啟'
+    },
+    ui: {
+      untitled: '未命名', chars: '{n} 個字元', placeholder: '在這裡輸入 Markdown 內容…',
+      new: '新增', open: '開啟', save: '儲存', saveAs: '另存新檔',
+      exportHtml: '匯出 HTML', exportPdf: '匯出 PDF', print: '列印',
+      edit: '編輯器', split: '分割', preview: '預覽',
+      language: '語言', theme: '主題', close: '關閉',
+      themeSystem: '跟隨系統', themeLight: '淺色', themeDark: '深色',
+      exported: '已匯出至 {path}', find: '尋找', findPlaceholder: '在文件中尋找',
+      findPrevious: '上一個相符項目', findNext: '下一個相符項目', noResults: '沒有相符結果', matchCount: '第 {current} 個，共 {total} 個',
+      replace: '取代', replacePlaceholder: '取代為', replaceAll: '全部取代', matchCase: '區分大小寫',
+      wholeWord: '完整單字', useRegex: '使用規則運算式', invalidRegex: '無效的規則運算式',
+      bold: '粗體', italic: '斜體', strike: '刪除線', heading: '標題', quote: '引用', code: '程式碼',
+      link: '連結', bulletList: '項目符號清單', numberedList: '編號清單', taskList: '待辦清單',
+      outline: '文件大綱', noHeadings: '沒有標題', image: '插入圖片',
+      stats: '{words} 個字詞 · {chars} 個字元 · {lines} 行 · 第 {line} 行，第 {column} 欄', selectedStats: ' · 已選取 {selected}',
+      autoSave: '自動儲存', history: '版本紀錄', noHistory: '沒有先前版本', restoreVersion: '要恢復這個版本嗎？', restore: '恢復',
+      saved: '已儲存', saveFailed: '儲存失敗：{error}', autoSaveFailed: '自動儲存失敗：{error}',
+      diffTitle: '磁碟上的檔案已變更', currentVersion: '目前的編輯器內容', diskVersion: '磁碟上的最新內容',
+      loadLatest: '載入最新內容', keepCurrent: '保留目前內容', settings: '設定', lineNumbers: '顯示行號',
+      lineWrapping: '自動換行', tabSize: 'Tab 寬度', fontSize: '編輯器字型大小', defaultView: '預設檢視',
+      goToLine: '前往行', lineNumber: '行號', go: '前往'
     }
   },
   ja: {
