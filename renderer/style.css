@@ -495,12 +495,14 @@ body.dragging #preview { pointer-events: none; }
 .history-item time { flex: 1; }
 .history-item span { color: var(--text-muted); font-size: 12px; }
 
-.diff-card { width: min(1050px, 95vw); }
+.diff-card { display: flex; flex-direction: column; width: min(1050px, 95vw); }
+.diff-card .modal-header { min-height: 0; overflow: auto; }
+.diff-card .diff-headings, .diff-card .modal-actions { flex-shrink: 0; }
 .diff-path { margin-top: 3px; color: var(--text-muted); font-size: 12px; word-break: break-all; }
 .diff-headings { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--border); background: var(--bg-secondary); }
 .diff-headings strong { padding: 8px 12px; font-size: 12px; }
 .diff-headings strong + strong { border-left: 1px solid var(--border); }
-.diff-content { max-height: 55vh; overflow: auto; font-family: "Cascadia Code", Consolas, Menlo, monospace; font-size: 12px; }
+.diff-content { min-height: 0; max-height: 55vh; overflow: auto; font-family: "Cascadia Code", Consolas, Menlo, monospace; font-size: 12px; }
 .diff-row { display: grid; grid-template-columns: 1fr 1fr; min-width: 700px; }
 .diff-cell { display: grid; grid-template-columns: 44px 1fr; min-height: 22px; border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent); }
 .diff-cell + .diff-cell { border-left: 1px solid var(--border); }
