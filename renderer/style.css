@@ -562,6 +562,7 @@ body.dragging #preview { pointer-events: none; }
 .markdown-body th, .markdown-body td { border: 1px solid var(--border); padding: 6px 13px; }
 .markdown-body th { background: var(--bg-secondary); }
 .markdown-body img { max-width: 100%; }
+.markdown-body .mermaid-diagram { display: block; height: auto; margin: 12px 0; }
 .markdown-body hr { border: none; border-top: 2px solid var(--heading-border); margin: 20px 0; }
 .markdown-body a { color: var(--accent); text-decoration: none; }
 .markdown-body a:hover { text-decoration: underline; }

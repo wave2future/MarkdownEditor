@@ -2,7 +2,30 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron');
 const { pathToFileURL } = require('url');
 // 在 preload 里加载 highlight.js（渲染进程关闭了 nodeIntegration），common 子集覆盖约 40 种常用语言
 const hljs = require('highlight.js/lib/common');
+const bash = require('highlight.js/lib/languages/bash');
 const { diffLines } = require('./lib/diff-utils');
+
+hljs.registerLanguage('bash', (highlighter) => {
+  const language = bash(highlighter);
+  // A here-document piped to `node -` contains JavaScript between the shell delimiters.
+  language.contains.unshift({
+    begin: /^[ \t]*node[ \t]+-[ \t]+<<(-?)[ \t]*(['"]?)(\w+)\2(?:[ \t]+#[^\r\n]*)?[ \t]*\r?\n/,
+    end: /^(\t*)(\w+)(?=\r?$)/,
+    beginScope: 'meta',
+    endScope: 'meta',
+    subLanguage: 'javascript',
+    'on:begin': (match, response) => {
+      response.data.allowTabs = match[1] === '-';
+      response.data.delimiter = match[3];
+    },
+    'on:end': (match, response) => {
+      if (match[2] !== response.data.delimiter || (match[1] && !response.data.allowTabs)) {
+        response.ignoreMatch();
+      }
+    }
+  });
+  return language;
+});
 
 contextBridge.exposeInMainWorld('api', {
   openFile: () => ipcRenderer.invoke('file:open'),
@@ -44,6 +67,12 @@ contextBridge.exposeInMainWorld('api', {
   onSaveThenClose: (cb) => ipcRenderer.on('app:save-then-close', () => cb()),
   // 把文档的绝对路径转成 file:// URL，渲染进程用它解析 Markdown 里的相对图片路径
   pathToFileUrl: (p) => pathToFileURL(p).href,
+  mindmapIcon: (name) => {
+    const pack = require('@iconify-json/fa/icons.json');
+    if (!Object.hasOwn(pack.icons, name)) return null;
+    const { body, width = pack.width, height = pack.height } = pack.icons[name];
+    return { body, width, height };
+  },
   highlight: (code, lang) => {
     try {
       if (lang && hljs.getLanguage(lang)) {

@@ -607,6 +607,9 @@ marked.use({
     },
     code(token) {
       const langName = (token.lang || '').match(/^\S*/)[0];
+      if (langName.toLowerCase() === 'mermaid') {
+        return `<pre><code class="hljs language-mermaid">${escapeHtml(token.text)}</code></pre>\n`;
+      }
       const highlighted = window.api.highlight(token.text, langName) ?? escapeHtml(token.text);
       return `<pre><code class="hljs">${highlighted}</code></pre>\n`;
     },
@@ -632,8 +635,120 @@ function renderMarkdown() {
   return marked.parse(cm.getValue());
 }
 
+let mermaidRenderQueue = Promise.resolve();
+let mermaidDiagramId = 0;
+let mermaidLoading;
+
+const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+
+function parseMermaidSvg(svg) {
+  const markup = new DOMParser().parseFromString(svg, 'image/svg+xml');
+  const root = markup.documentElement;
+  if (root.namespaceURI === SVG_NAMESPACE && !root.querySelector('parsererror')) return root;
+
+  // Mermaid can emit HTML entities and unqualified XLink attributes in its SVG markup.
+  const template = document.createElement('template');
+  template.innerHTML = svg;
+  const svgElement = template.content.firstElementChild;
+  if (svgElement?.namespaceURI !== SVG_NAMESPACE || svgElement.localName !== 'svg') {
+    throw new Error('Invalid Mermaid SVG');
+  }
+  return svgElement;
+}
+
+async function addMindmapIcons(mermaid, svg, source) {
+  if (svg.getAttribute('aria-roledescription') !== 'mindmap' || !source.includes('::icon(')) return;
+
+  // The mindmap parser records icon decorations, but its SVG node shapes only draw labels.
+  const { db } = await mermaid.mermaidAPI.getDiagramFromText(source);
+  const rootLabelColor = mermaid.mermaidAPI.getConfig().themeVariables?.gitBranchLabel0;
+  for (const node of db.getData().nodes) {
+    const name = /^(?:fa|fas|far|fab|fa-solid|fa-regular|fa-brands)[\s:]+(?:fa-)?([\w-]+)$/i.exec(node.icon?.trim())?.[1]?.toLowerCase();
+    const graphic = name && window.api.mindmapIcon(name);
+    if (!graphic) continue;
+
+    const label = svg.querySelector(`#${CSS.escape(`${svg.id}-${node.domId}`)} > .label`);
+    const bounds = label?.querySelector('rect.background, foreignObject');
+    if (!bounds) continue;
+
+    const { body, width, height } = graphic;
+    const size = 13;
+    const spacing = (size + 3) / 2;
+    const position = label.getAttribute('transform') || '';
+    const icon = svg.ownerDocument.createElementNS(SVG_NAMESPACE, 'svg');
+    icon.setAttribute('class', `mindmap-preview-icon node-icon-${node.section ?? -1}`);
+    icon.setAttribute('aria-hidden', 'true');
+    icon.setAttribute('transform', position);
+    icon.setAttribute('x', Number(bounds.getAttribute('x')) - spacing);
+    icon.setAttribute('y', Number(bounds.getAttribute('y')) + (Number(bounds.getAttribute('height')) - size) / 2);
+    icon.setAttribute('width', size);
+    icon.setAttribute('height', size);
+    icon.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    if (label.parentElement.classList.contains('section-root') && rootLabelColor) icon.style.color = rootLabelColor;
+    icon.innerHTML = body;
+    for (const path of icon.querySelectorAll('[fill="currentColor"]')) {
+      path.setAttribute('style', 'fill: currentColor; stroke: none');
+    }
+    label.setAttribute('transform', `${position} translate(${spacing}, 0)`);
+    label.before(icon);
+  }
+}
+
+function loadMermaid() {
+  mermaidLoading ??= Promise.all([
+    import('../node_modules/mermaid/dist/mermaid.esm.min.mjs'),
+    import('../node_modules/@mermaid-js/layout-tidy-tree/dist/mermaid-layout-tidy-tree.esm.min.mjs')
+  ]).then(([mermaid, tidyTree]) => {
+    mermaid.default.registerLayoutLoaders(tidyTree.default);
+    return mermaid.default;
+  });
+  return mermaidLoading;
+}
+
+function renderMermaidPreview() {
+  const blocks = preview.querySelectorAll('pre > code.language-mermaid');
+  if (!blocks.length || main.classList.contains('mode-edit')) return;
+  const theme = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'default';
+
+  // Mermaid uses shared configuration, so finish each batch before changing its theme.
+  mermaidRenderQueue = mermaidRenderQueue.then(async () => {
+    if (!blocks[0].isConnected) return;
+    const mermaid = await loadMermaid();
+    if (!blocks[0].isConnected) return;
+    mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', suppressErrorRendering: true, htmlLabels: false, theme });
+
+    for (const block of blocks) {
+      if (!block.isConnected || main.classList.contains('mode-edit')) break;
+      try {
+        const source = block.textContent;
+        const { svg } = await mermaid.render(`mermaid-preview-${++mermaidDiagramId}`, source);
+        if (!block.isConnected) break;
+
+        const markup = parseMermaidSvg(svg);
+        await addMindmapIcons(mermaid, markup, source).catch(() => {
+          // Optional decorations should not hide the diagram.
+        });
+        const viewBox = markup.getAttribute('viewBox');
+        const width = Number(viewBox?.trim().split(/\s+/)[2]);
+        const image = new Image();
+        image.className = 'mermaid-diagram';
+        image.alt = markup.querySelector('title')?.textContent || 'Mermaid';
+        if (width > 0) image.width = Math.ceil(width);
+        image.src = `data:image/svg+xml,${encodeURIComponent(new XMLSerializer().serializeToString(markup))}`;
+        await image.decode();
+        if (block.isConnected) block.parentElement.replaceWith(image);
+      } catch {
+        // Keep the source visible while a diagram is incomplete or invalid.
+      }
+    }
+  }).catch(() => {
+    // The source remains readable if the renderer could not load.
+  });
+}
+
 function render() {
   preview.innerHTML = renderMarkdown();
+  renderMermaidPreview();
   renderOutline();
 }
 
@@ -833,6 +948,7 @@ function applyTheme() {
   cm.setOption('theme', dark ? 'material-darker' : 'default');
   document.getElementById('hljs-light').disabled = dark;
   document.getElementById('hljs-dark').disabled = !dark;
+  if (preview.querySelector('.mermaid-diagram, .language-mermaid')) render();
 }
 
 themeSelect.value = themeSetting;

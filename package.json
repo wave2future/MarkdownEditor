@@ -55,10 +55,13 @@
     ]
   },
   "dependencies": {
+    "@iconify-json/fa": "^1.2.2",
+    "@mermaid-js/layout-tidy-tree": "^1.0.1",
     "codemirror": "^5.65.21",
     "highlight.js": "^11.11.1",
     "katex": "^0.16.47",
-    "marked": "^18.0.5"
+    "marked": "^18.0.5",
+    "mermaid": "^12.3.0"
   },
   "devDependencies": {
     "electron": "^42.4.0",
