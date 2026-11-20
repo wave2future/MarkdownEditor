@@ -2,6 +2,8 @@
 
 简洁的跨平台（Windows / macOS）Markdown 编辑器，基于 Electron。
 
+[打开预览示例](examples/preview-showcase.md)，查看 Markdown 排版、KaTeX 公式、Bash 与 JavaScript 高亮，以及 Mermaid 图表。
+
 ## 需求提示词
 
 > 开发一个跨Windows和Mac平台的Markdown格式编辑器，支持编辑Markdown格式内容，Markdown格式文件预览，文件打开、保存等功能，md格式文件双击系统可以直接打开本软件打开对应的Markdown格式文件。界面简洁。

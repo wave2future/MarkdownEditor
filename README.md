@@ -2,6 +2,8 @@
 
 A clean, cross-platform (Windows / macOS) Markdown editor built on Electron.
 
+[Open the preview showcase](examples/preview-showcase.md) to try Markdown formatting, KaTeX, Bash and JavaScript highlighting, and Mermaid diagrams.
+
 ## Requirements Prompt
 
 > Develop a Markdown editor that works on both Windows and Mac, supporting Markdown content editing, Markdown preview, and file open/save functions. Double-clicking a .md file in the system should open it directly in this app. The interface should be clean and simple.
