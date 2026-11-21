@@ -160,6 +160,7 @@ const cm = CodeMirror(document.getElementById('editor-host'), {
   lineWrapping: true,
   autofocus: true,
   styleSelectedText: true,
+  lineWiseCopyCut: false,
   extraKeys: {
     'Enter': 'newlineAndIndentContinueMarkdownList',
     'Cmd-F': () => openFind(),
@@ -1357,6 +1358,7 @@ async function importImageFile(file) {
 }
 
 async function pasteImage(e) {
+  if (e.clipboardData?.getData('text/plain')) return;
   const imageItem = Array.from(e.clipboardData?.items || []).find((item) => item.type.startsWith('image/'));
   if (!imageItem) return;
   e.preventDefault();

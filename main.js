@@ -391,9 +391,9 @@ function buildMenu() {
         { label: m.find, accelerator: 'CmdOrCtrl+F', click: () => send('find') },
         { label: m.replace, accelerator: process.platform === 'darwin' ? 'Cmd+Alt+F' : 'Ctrl+H', click: () => send('replace') },
         { type: 'separator' },
-        { label: m.cut, accelerator: 'CmdOrCtrl+X', click: () => send('cut') },
-        { label: m.copy, accelerator: 'CmdOrCtrl+C', click: () => send('copy') },
-        { label: m.paste, accelerator: 'CmdOrCtrl+V', click: () => send('paste') },
+        { role: 'cut', label: m.cut },
+        { role: 'copy', label: m.copy },
+        { role: 'paste', label: m.paste },
         { label: m.selectAll, accelerator: 'CmdOrCtrl+A', click: () => send('select-all') },
         { type: 'separator' },
         { label: m.goToLine, accelerator: 'CmdOrCtrl+L', click: () => send('go-to-line') }
