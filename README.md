@@ -2,7 +2,7 @@
 
 A clean, cross-platform (Windows / macOS) Markdown editor built on Electron.
 
-[Open the preview showcase](examples/preview-showcase.md) to try Markdown formatting, KaTeX, Bash and JavaScript highlighting, and Mermaid diagrams.
+[See preview examples](#preview-examples) to try Markdown formatting, KaTeX, Bash and JavaScript highlighting, and Mermaid diagrams.
 
 ## Requirements Prompt
 
@@ -14,12 +14,13 @@ A clean, cross-platform (Windows / macOS) Markdown editor built on Electron.
 
 - CodeMirror editor: Markdown syntax highlighting, automatic list continuation, Tab indentation
 - Find and replace with match counts, case/whole-word/regex options, and Replace All
-- Markdown formatting bar for emphasis, headings, quotes, code, links, and lists
+- Markdown formatting bar for emphasis, headings, quotes, code, links (`Ctrl/Cmd+K`), and lists
 - Live preview with code block highlighting via highlight.js (Edit / Split / Preview-only views, switch with Ctrl+1/2/3)
 - Safe preview that blocks executable raw HTML and unsafe URLs; external links open in the system browser
 - Document outline with heading navigation
 - New file (Ctrl+N), Open (Ctrl+O), Save (Ctrl+S), Save As (Ctrl+Shift+S)
 - Multi-tab editing, recent files, and startup recovery of tabs and unsaved drafts
+- Tab shortcuts for opening (`Ctrl/Cmd+T`), closing (`Ctrl/Cmd+W`), reopening (`Ctrl/Cmd+Shift+T`), and cycling (`Ctrl+Tab` and `Ctrl+Shift+Tab`)
 - Paste screenshots or drop images to store them beside the document and insert relative paths
 - Optional auto save and up to 20 local versions retained before file overwrites
 - Atomic saves that safely replace files only after a complete write and report failures without damaging the original
@@ -35,6 +36,40 @@ A clean, cross-platform (Windows / macOS) Markdown editor built on Electron.
 - Editor settings for line numbers, wrapping, tab size, font size, default view, and auto save
 - Go to Line (Ctrl/Cmd+L)
 - Single-instance mode: double-clicking a file again reuses the already-open window
+
+## Preview examples
+
+### Mermaid flowchart
+
+```mermaid
+flowchart LR
+    A[网站 A 的指标 API] --> S[中心定时采集]
+    B[App B 的指标 API] --> S
+    C[其他项目的指标 API] --> S
+    S --> D[(中心汇总数据库)]
+    D --> W[统一运营看板]
+```
+
+### Bash with embedded JavaScript
+
+```bash
+node - <<'JS'
+const counts = { website: 1240, app: 870 };
+const total = counts.website + counts.app;
+console.log(`TOTAL_SESSIONS=${total}`);
+JS
+printf '%s\n' '已汇总'
+```
+
+### Math formulas
+
+Use $r = \frac{s}{n}$ inline or put a formula in its own block.
+
+$$
+\bar{x} = \frac{1}{n} \sum_{i=1}^{n} x_i
+$$
+
+[View all examples](examples/preview-showcase.md) for more Markdown formatting, KaTeX formulas, and 41 Mermaid diagrams.
 
 ## Development
 

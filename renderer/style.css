@@ -381,7 +381,17 @@ body.drag-over #main::after {
   line-height: 1.7;
 }
 
-.CodeMirror .CodeMirror-lines { padding: 16px 8px; }
+/* Horizontal padding belongs on the text lines so the gutter stays aligned. */
+.CodeMirror .CodeMirror-lines { padding: 16px 0; }
+.CodeMirror pre.CodeMirror-line,
+.CodeMirror pre.CodeMirror-line-like { padding: 0 12px; }
+
+.CodeMirror .CodeMirror-gutters { border-right: 1px solid var(--border); }
+.CodeMirror .CodeMirror-linenumber {
+  min-width: 4ch;
+  padding: 0 6px;
+}
+
 .CodeMirror pre.CodeMirror-placeholder { color: var(--text-muted); }
 
 /* material-darker 默认选区透明度过低；编辑区与预览区统一使用清晰的淡蓝色。 */
@@ -496,9 +506,17 @@ body.dragging #preview { pointer-events: none; }
 .history-item span { color: var(--text-muted); font-size: 12px; }
 
 .diff-card { display: flex; flex-direction: column; width: min(1050px, 95vw); }
-.diff-card .modal-header { min-height: 0; overflow: auto; }
+.diff-card .modal-header,
 .diff-card .diff-headings, .diff-card .modal-actions { flex-shrink: 0; }
-.diff-path { margin-top: 3px; color: var(--text-muted); font-size: 12px; word-break: break-all; }
+.diff-path {
+  margin-top: 3px;
+  max-height: 4.5em;
+  overflow: auto;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
 .diff-headings { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--border); background: var(--bg-secondary); }
 .diff-headings strong { padding: 8px 12px; font-size: 12px; }
 .diff-headings strong + strong { border-left: 1px solid var(--border); }

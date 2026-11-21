@@ -444,6 +444,24 @@ function wrapSelection(before, after, placeholder) {
   cm.focus();
 }
 
+function insertMarkdownLink() {
+  const placeholder = 'link text';
+  const url = 'https://';
+  cm.operation(() => {
+    const selections = cm.getSelections();
+    cm.replaceSelections(selections.map(text => `[${text || placeholder}](${url})`), 'around', '+format');
+    cm.setSelections(cm.listSelections().map((range, index) => {
+      if (selections[index]) {
+        const end = range.to();
+        return { anchor: CodeMirror.Pos(end.line, end.ch - url.length - 1), head: CodeMirror.Pos(end.line, end.ch - 1) };
+      }
+      const start = range.from();
+      return { anchor: CodeMirror.Pos(start.line, start.ch + 1), head: CodeMirror.Pos(start.line, start.ch + 1 + placeholder.length) };
+    }));
+  });
+  cm.focus();
+}
+
 function prefixSelectedLines(prefix) {
   const from = cm.getCursor('from').line;
   const end = cm.getCursor('to');
@@ -470,7 +488,7 @@ function applyFormat(format) {
     bullet: () => prefixSelectedLines('- '),
     numbered: () => prefixSelectedLines('1. '),
     task: () => prefixSelectedLines('- [ ] '),
-    link: () => wrapSelection('[', '](https://)', 'link text'),
+    link: insertMarkdownLink,
     image: chooseAndInsertImage,
     code: () => {
       const selected = cm.getSelection();
@@ -501,6 +519,7 @@ cm.getWrapperElement().addEventListener('contextmenu', (e) => {
 
   const history = cm.historySize();
   window.api.showEditorContextMenu({
+    filePath: activeTab()?.filePath,
     hasSelection: cm.somethingSelected(),
     canUndo: history.undo > 0,
     canRedo: history.redo > 0
@@ -1078,6 +1097,7 @@ function activateTab(index) {
   setDocBaseUrl(tab.filePath);
   render();
   renderTabs();
+  tabbar.querySelector('.tab.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   updateStatus();
   if (!findBar.hidden) refreshSearch(false);
   cm.focus();
@@ -1097,18 +1117,63 @@ function openInNewTab(filePath, content, format) {
   activateTab(tabs.length - 1);
 }
 
+function cycleTab(offset) {
+  if (tabs.length < 2) return;
+  activateTab((activeIndex + offset + tabs.length) % tabs.length);
+}
+
+let tabClosePending = false;
+let tabReopenPending = false;
+const closedTabs = [];
+
 async function closeTab(index) {
   const tab = tabs[index];
-  if (!tab) return;
+  if (!tab || tabClosePending) return;
   if (tab.dirty) {
-    activateTab(index);
-    if (!(await window.api.confirmDiscard(L().dialog.discard))) return;
+    tabClosePending = true;
+    try {
+      activateTab(index);
+      if (!(await window.api.confirmDiscard(L().dialog.discard))) return;
+    } finally {
+      tabClosePending = false;
+    }
   }
-  removeTab(index);
+  const currentIndex = tabs.indexOf(tab);
+  if (currentIndex < 0) return;
+  if (tab.filePath || !tab.dirty) {
+    closedTabs.push(tab.filePath);
+    if (closedTabs.length > 20) closedTabs.shift();
+  }
+  removeTab(currentIndex);
+}
+
+async function reopenClosedTab() {
+  if (tabReopenPending || closedTabs.length === 0) return;
+  const filePath = closedTabs.pop();
+  if (!filePath) {
+    newFile();
+    return;
+  }
+
+  const existing = tabs.findIndex(tab => tab.filePath === filePath);
+  if (existing >= 0) {
+    activateTab(existing);
+    return;
+  }
+
+  tabReopenPending = true;
+  try {
+    const document = await window.api.readFile(filePath);
+    if (document) openInNewTab(filePath, document.content, document.format);
+  } finally {
+    tabReopenPending = false;
+  }
 }
 
 function removeTab(index) {
-  tabs.splice(index, 1);
+  const [tab] = tabs.splice(index, 1);
+  clearTimeout(autoSaveTimers.get(tab.id));
+  autoSaveTimers.delete(tab.id);
   if (tabs.length === 0) {
     createTab(null, '');
     activateTab(0);
@@ -1561,6 +1626,8 @@ gotoInput.addEventListener('keydown', (e) => {
 });
 
 window.api.onMenu((action) => {
+  if ((action.startsWith('tab-') || action === 'insert-link') &&
+      (tabClosePending || document.querySelector('.modal-backdrop:not([hidden])'))) return;
   ({
     'new': newFile,
     'open': openFile,
@@ -1576,10 +1643,18 @@ window.api.onMenu((action) => {
     'history': openHistory,
     'settings': openSettings,
     'go-to-line': openGoToLine,
+    'insert-link': () => {
+      if (cm.hasFocus() && !main.classList.contains('mode-preview')) insertMarkdownLink();
+    },
     'cut': cutSelection,
     'copy': copySelection,
     'paste': pasteClipboard,
     'select-all': () => { cm.focus(); cm.execCommand('selectAll'); },
+    'tab-new': newFile,
+    'tab-close': () => closeTab(activeIndex),
+    'tab-reopen': reopenClosedTab,
+    'tab-next': () => cycleTab(1),
+    'tab-previous': () => cycleTab(-1),
     'view-edit': () => setView('edit'),
     'view-split': () => setView('split'),
     'view-preview': () => setView('preview')

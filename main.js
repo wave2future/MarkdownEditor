@@ -1,4 +1,4 @@
-const { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell } = require('electron');
+const { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell, systemPreferences } = require('electron');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const os = require('os');
@@ -6,6 +6,11 @@ const crypto = require('crypto');
 const fs = require('fs/promises');
 const LOCALES = require('./locales');
 const { DEFAULT_FORMAT, normalizeFormat, readDocument, writeDocument } = require('./lib/file-utils');
+
+if (process.platform === 'darwin') {
+  // Keep the full-screen item defined by the app at the end of the View menu.
+  systemPreferences.setUserDefault('NSFullScreenMenuItemEverywhere', 'boolean', false);
+}
 
 const MD_EXTS = ['.md', '.markdown', '.txt'];
 const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg']);
@@ -359,9 +364,33 @@ function buildRecentSubmenu() {
 }
 
 function buildMenu() {
-  const m = t().menu;
+  const locale = t();
+  const m = locale.menu;
   const send = (action) => mainWindow && mainWindow.webContents.send('menu', action);
+  const editorCommand = (action) => (_item, window) => {
+    if (window === mainWindow && rendererReady) send(action);
+  };
+  const settingsItem = { label: m.settings, click: () => send('settings') };
+  const applicationMenu = process.platform === 'darwin'
+    ? {
+        role: 'appMenu',
+        submenu: [
+          { role: 'about' },
+          { type: 'separator' },
+          settingsItem,
+          { type: 'separator' },
+          { role: 'services' },
+          { type: 'separator' },
+          { role: 'hide' },
+          { role: 'hideOthers' },
+          { role: 'unhide' },
+          { type: 'separator' },
+          { role: 'quit' }
+        ]
+      }
+    : { label: 'Markdown Editor', submenu: [settingsItem] };
   const template = [
+    applicationMenu,
     {
       label: m.file,
       submenu: [
@@ -396,7 +425,19 @@ function buildMenu() {
         { role: 'paste', label: m.paste },
         { label: m.selectAll, accelerator: 'CmdOrCtrl+A', click: () => send('select-all') },
         { type: 'separator' },
-        { label: m.goToLine, accelerator: 'CmdOrCtrl+L', click: () => send('go-to-line') }
+        { label: m.goToLine, accelerator: 'CmdOrCtrl+L', click: () => send('go-to-line') },
+        { label: locale.ui.link, accelerator: 'CmdOrCtrl+K', click: editorCommand('insert-link') }
+      ]
+    },
+    {
+      label: m.tabs,
+      submenu: [
+        { label: m.newTab, accelerator: 'CmdOrCtrl+T', click: editorCommand('tab-new') },
+        { label: locale.dialog.closeTab, accelerator: 'CmdOrCtrl+W', click: editorCommand('tab-close') },
+        { label: m.reopenTab, accelerator: 'CmdOrCtrl+Shift+T', click: editorCommand('tab-reopen') },
+        { type: 'separator' },
+        { label: m.nextTab, accelerator: 'Ctrl+Tab', click: editorCommand('tab-next') },
+        { label: m.previousTab, accelerator: 'Ctrl+Shift+Tab', click: editorCommand('tab-previous') }
       ]
     },
     {
@@ -406,15 +447,10 @@ function buildMenu() {
         { label: m.split, accelerator: 'CmdOrCtrl+2', click: () => send('view-split') },
         { label: m.previewOnly, accelerator: 'CmdOrCtrl+3', click: () => send('view-preview') },
         { type: 'separator' },
-        { role: 'togglefullscreen', label: m.fullscreen },
-        { type: 'separator' },
-        { label: m.settings, click: () => send('settings') }
+        { role: 'togglefullscreen', label: m.fullscreen }
       ]
     }
   ];
-  if (process.platform === 'darwin') {
-    template.unshift({ role: 'appMenu' });
-  }
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
@@ -622,13 +658,18 @@ ipcMain.on('session:ready', (event) => {
 });
 
 // CodeMirror 的选区不属于普通 input/textarea，Electron 的系统编辑 role 无法稳定操作它。
-// 右键菜单只负责展示和发送命令，实际选区修改由渲染进程中的 CodeMirror 完成。
+// 右键菜单中的编辑命令由渲染进程中的 CodeMirror 处理。
 ipcMain.on('editor:show-context-menu', (event, state) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (!win || win !== mainWindow) return;
 
   const m = t().menu;
   const send = (action) => event.sender.send('menu', action);
+  const { filePath } = state ?? {};
+  const revealLabel = {
+    darwin: m.showInFinder,
+    win32: m.showInExplorer
+  }[process.platform] ?? m.showInFileManager;
   const menu = Menu.buildFromTemplate([
     { label: m.undo, enabled: !!state?.canUndo, click: () => send('undo') },
     { label: m.redo, enabled: !!state?.canRedo, click: () => send('redo') },
@@ -637,7 +678,13 @@ ipcMain.on('editor:show-context-menu', (event, state) => {
     { label: m.copy, enabled: !!state?.hasSelection, click: () => send('copy') },
     { label: m.paste, enabled: clipboard.readText().length > 0, click: () => send('paste') },
     { type: 'separator' },
-    { label: m.selectAll, click: () => send('select-all') }
+    { label: m.selectAll, click: () => send('select-all') },
+    { type: 'separator' },
+    {
+      label: revealLabel,
+      enabled: typeof filePath === 'string' && path.isAbsolute(filePath),
+      click: () => shell.showItemInFolder(filePath)
+    }
   ]);
   menu.popup({ window: win });
 });
@@ -709,7 +756,7 @@ ipcMain.handle('file:open', async (event) => {
   return { filePath, ...document };
 });
 
-// 拖放打开：渲染进程拿到文件路径后读取内容（路径由 preload 的 webUtils 解析）
+// 读取指定路径，用于拖放打开和恢复已关闭的标签页。
 ipcMain.handle('file:read', async (event, filePath) => {
   if (!isTrustedSender(event)) return null;
   try {

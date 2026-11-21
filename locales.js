@@ -3,6 +3,8 @@ const LOCALES = {
   en: {
     name: 'English',
     menu: {
+      reopenTab: 'Reopen Closed Tab',
+      tabs: 'Tabs', newTab: 'New Tab', nextTab: 'Next Tab', previousTab: 'Previous Tab',
       file: 'File', new: 'New', open: 'Open…', save: 'Save', saveAs: 'Save As…',
       exportHtml: 'Export as HTML…', exportPdf: 'Export as PDF…', quit: 'Quit',
       openRecent: 'Open Recent', clearRecent: 'Clear Recently Opened', noRecent: 'No Recent Files',
@@ -10,7 +12,8 @@ const LOCALES = {
       edit: 'Edit', undo: 'Undo', redo: 'Redo', cut: 'Cut', copy: 'Copy',
       paste: 'Paste', selectAll: 'Select All', find: 'Find…', replace: 'Replace…', goToLine: 'Go to Line…',
       view: 'View', editOnly: 'Editor Only', split: 'Split', previewOnly: 'Preview Only',
-      fullscreen: 'Toggle Full Screen', settings: 'Settings…'
+      fullscreen: 'Toggle Full Screen', settings: 'Settings…',
+      showInFinder: 'Show in Finder', showInExplorer: 'Show in File Explorer', showInFileManager: 'Show in File Manager'
     },
     dialog: {
       unsaved: 'The document has unsaved changes. Save them?',
@@ -48,6 +51,8 @@ const LOCALES = {
   zh: {
     name: '简体中文',
     menu: {
+      reopenTab: '重新打开已关闭的标签页',
+      tabs: '标签页', newTab: '新建标签页', nextTab: '下一个标签页', previousTab: '上一个标签页',
       file: '文件', new: '新建', open: '打开…', save: '保存', saveAs: '另存为…',
       exportHtml: '导出 HTML…', exportPdf: '导出 PDF…', quit: '退出',
       openRecent: '最近打开', clearRecent: '清除最近打开', noRecent: '无最近文件',
@@ -55,7 +60,8 @@ const LOCALES = {
       edit: '编辑', undo: '撤销', redo: '重做', cut: '剪切', copy: '复制',
       paste: '粘贴', selectAll: '全选', find: '查找…', replace: '替换…', goToLine: '转到行…',
       view: '视图', editOnly: '仅编辑', split: '分屏', previewOnly: '仅预览',
-      fullscreen: '全屏', settings: '设置…'
+      fullscreen: '全屏', settings: '设置…',
+      showInFinder: '在访达中显示', showInExplorer: '在文件资源管理器中显示', showInFileManager: '在文件管理器中显示'
     },
     dialog: {
       unsaved: '文档尚未保存，是否保存更改？',
@@ -93,6 +99,8 @@ const LOCALES = {
   'zh-TW': {
     name: '繁體中文',
     menu: {
+      reopenTab: '重新開啟已關閉的分頁',
+      tabs: '分頁', newTab: '新增分頁', nextTab: '下一個分頁', previousTab: '上一個分頁',
       file: '檔案', new: '新增', open: '開啟…', save: '儲存', saveAs: '另存新檔…',
       exportHtml: '匯出 HTML…', exportPdf: '匯出 PDF…', quit: '結束',
       openRecent: '開啟最近使用的檔案', clearRecent: '清除最近使用的檔案', noRecent: '沒有最近使用的檔案',
@@ -100,7 +108,8 @@ const LOCALES = {
       edit: '編輯', undo: '復原', redo: '重做', cut: '剪下', copy: '複製',
       paste: '貼上', selectAll: '全選', find: '尋找…', replace: '取代…', goToLine: '前往行…',
       view: '檢視', editOnly: '僅編輯器', split: '分割檢視', previewOnly: '僅預覽',
-      fullscreen: '全螢幕', settings: '設定…'
+      fullscreen: '全螢幕', settings: '設定…',
+      showInFinder: '在 Finder 中顯示', showInExplorer: '在檔案總管中顯示', showInFileManager: '在檔案管理員中顯示'
     },
     dialog: {
       unsaved: '文件有尚未儲存的變更。要儲存嗎？',
@@ -138,6 +147,8 @@ const LOCALES = {
   ja: {
     name: '日本語',
     menu: {
+      reopenTab: '閉じたタブを開く',
+      tabs: 'タブ', newTab: '新しいタブ', nextTab: '次のタブ', previousTab: '前のタブ',
       file: 'ファイル', new: '新規', open: '開く…', save: '保存', saveAs: '名前を付けて保存…',
       exportHtml: 'HTML をエクスポート…', exportPdf: 'PDF をエクスポート…', quit: '終了',
       openRecent: '最近使った項目', clearRecent: '最近使った項目をクリア', noRecent: '最近のファイルなし',
@@ -145,7 +156,8 @@ const LOCALES = {
       edit: '編集', undo: '元に戻す', redo: 'やり直し', cut: '切り取り', copy: 'コピー',
       paste: '貼り付け', selectAll: 'すべて選択', find: '検索…', replace: '置換…', goToLine: '行へ移動…',
       view: '表示', editOnly: '編集のみ', split: '分割', previewOnly: 'プレビューのみ',
-      fullscreen: '全画面表示', settings: '設定…'
+      fullscreen: '全画面表示', settings: '設定…',
+      showInFinder: 'Finder に表示', showInExplorer: 'エクスプローラーに表示', showInFileManager: 'ファイルマネージャーに表示'
     },
     dialog: {
       unsaved: '変更が保存されていません。保存しますか？',
@@ -183,6 +195,8 @@ const LOCALES = {
   fr: {
     name: 'Français',
     menu: {
+      reopenTab: 'Rouvrir l’onglet fermé',
+      tabs: 'Onglets', newTab: 'Nouvel onglet', nextTab: 'Onglet suivant', previousTab: 'Onglet précédent',
       file: 'Fichier', new: 'Nouveau', open: 'Ouvrir…', save: 'Enregistrer', saveAs: 'Enregistrer sous…',
       exportHtml: 'Exporter en HTML…', exportPdf: 'Exporter en PDF…', quit: 'Quitter',
       openRecent: 'Ouvrir un élément récent', clearRecent: 'Effacer les éléments récents', noRecent: 'Aucun fichier récent',
@@ -190,7 +204,9 @@ const LOCALES = {
       edit: 'Édition', undo: 'Annuler', redo: 'Rétablir', cut: 'Couper', copy: 'Copier',
       paste: 'Coller', selectAll: 'Tout sélectionner', find: 'Rechercher…', replace: 'Remplacer…', goToLine: 'Atteindre la ligne…',
       view: 'Affichage', editOnly: 'Éditeur seul', split: 'Partagé', previewOnly: 'Aperçu seul',
-      fullscreen: 'Plein écran', settings: 'Paramètres…'
+      fullscreen: 'Plein écran', settings: 'Paramètres…',
+      showInFinder: 'Afficher dans le Finder', showInExplorer: 'Afficher dans l’Explorateur de fichiers',
+      showInFileManager: 'Afficher dans le gestionnaire de fichiers'
     },
     dialog: {
       unsaved: 'Le document contient des modifications non enregistrées. Les enregistrer ?',
@@ -228,6 +244,8 @@ const LOCALES = {
   ko: {
     name: '한국어',
     menu: {
+      reopenTab: '닫은 탭 다시 열기',
+      tabs: '탭', newTab: '새 탭', nextTab: '다음 탭', previousTab: '이전 탭',
       file: '파일', new: '새 문서', open: '열기…', save: '저장', saveAs: '다른 이름으로 저장…',
       exportHtml: 'HTML 내보내기…', exportPdf: 'PDF 내보내기…', quit: '종료',
       openRecent: '최근 항목 열기', clearRecent: '최근 항목 지우기', noRecent: '최근 파일 없음',
@@ -235,7 +253,8 @@ const LOCALES = {
       edit: '편집', undo: '실행 취소', redo: '다시 실행', cut: '잘라내기', copy: '복사',
       paste: '붙여넣기', selectAll: '모두 선택', find: '찾기…', replace: '바꾸기…', goToLine: '줄로 이동…',
       view: '보기', editOnly: '편집만', split: '분할', previewOnly: '미리보기만',
-      fullscreen: '전체 화면', settings: '설정…'
+      fullscreen: '전체 화면', settings: '설정…',
+      showInFinder: 'Finder에서 보기', showInExplorer: '파일 탐색기에서 보기', showInFileManager: '파일 관리자에서 보기'
     },
     dialog: {
       unsaved: '문서에 저장되지 않은 변경 사항이 있습니다. 저장하시겠습니까?',
@@ -273,6 +292,8 @@ const LOCALES = {
   de: {
     name: 'Deutsch',
     menu: {
+      reopenTab: 'Geschlossenen Tab wieder öffnen',
+      tabs: 'Tabs', newTab: 'Neuer Tab', nextTab: 'Nächster Tab', previousTab: 'Vorheriger Tab',
       file: 'Datei', new: 'Neu', open: 'Öffnen…', save: 'Speichern', saveAs: 'Speichern unter…',
       exportHtml: 'Als HTML exportieren…', exportPdf: 'Als PDF exportieren…', quit: 'Beenden',
       openRecent: 'Zuletzt verwendet öffnen', clearRecent: 'Zuletzt verwendete löschen', noRecent: 'Keine letzten Dateien',
@@ -280,7 +301,8 @@ const LOCALES = {
       edit: 'Bearbeiten', undo: 'Rückgängig', redo: 'Wiederholen', cut: 'Ausschneiden', copy: 'Kopieren',
       paste: 'Einfügen', selectAll: 'Alles auswählen', find: 'Suchen…', replace: 'Ersetzen…', goToLine: 'Gehe zu Zeile…',
       view: 'Ansicht', editOnly: 'Nur Editor', split: 'Geteilt', previewOnly: 'Nur Vorschau',
-      fullscreen: 'Vollbild', settings: 'Einstellungen…'
+      fullscreen: 'Vollbild', settings: 'Einstellungen…',
+      showInFinder: 'Im Finder anzeigen', showInExplorer: 'Im Datei-Explorer anzeigen', showInFileManager: 'In der Dateiverwaltung anzeigen'
     },
     dialog: {
       unsaved: 'Das Dokument enthält ungespeicherte Änderungen. Speichern?',
@@ -320,13 +342,17 @@ const LOCALES = {
 LOCALES.es = {
   name: 'Español',
   menu: {
+    reopenTab: 'Volver a abrir la pestaña cerrada',
+    tabs: 'Pestañas', newTab: 'Nueva pestaña', nextTab: 'Pestaña siguiente', previousTab: 'Pestaña anterior',
     file: 'Archivo', new: 'Nuevo', open: 'Abrir…', save: 'Guardar', saveAs: 'Guardar como…',
     exportHtml: 'Exportar como HTML…', exportPdf: 'Exportar como PDF…', quit: 'Salir',
     openRecent: 'Abrir recientes', clearRecent: 'Borrar archivos recientes', noRecent: 'No hay archivos recientes',
     print: 'Imprimir…', history: 'Historial de versiones…', edit: 'Editar', undo: 'Deshacer', redo: 'Rehacer',
     cut: 'Cortar', copy: 'Copiar', paste: 'Pegar', selectAll: 'Seleccionar todo', find: 'Buscar…',
     replace: 'Reemplazar…', goToLine: 'Ir a la línea…', view: 'Ver', editOnly: 'Solo editor',
-    split: 'Vista dividida', previewOnly: 'Solo vista previa', fullscreen: 'Pantalla completa', settings: 'Configuración…'
+    split: 'Vista dividida', previewOnly: 'Solo vista previa', fullscreen: 'Pantalla completa', settings: 'Configuración…',
+    showInFinder: 'Mostrar en Finder', showInExplorer: 'Mostrar en el Explorador de archivos',
+    showInFileManager: 'Mostrar en el gestor de archivos'
   },
   dialog: {
     unsaved: 'Este documento tiene cambios sin guardar. ¿Deseas guardarlos?', save: 'Guardar', dontSave: 'No guardar', cancel: 'Cancelar',
@@ -359,13 +385,17 @@ LOCALES.es = {
 LOCALES['pt-BR'] = {
   name: 'Português (Brasil)',
   menu: {
+    reopenTab: 'Reabrir aba fechada',
+    tabs: 'Abas', newTab: 'Nova aba', nextTab: 'Próxima aba', previousTab: 'Aba anterior',
     file: 'Arquivo', new: 'Novo', open: 'Abrir…', save: 'Salvar', saveAs: 'Salvar como…',
     exportHtml: 'Exportar como HTML…', exportPdf: 'Exportar como PDF…', quit: 'Sair',
     openRecent: 'Abrir recentes', clearRecent: 'Limpar arquivos recentes', noRecent: 'Nenhum arquivo recente',
     print: 'Imprimir…', history: 'Histórico de versões…', edit: 'Editar', undo: 'Desfazer', redo: 'Refazer',
     cut: 'Recortar', copy: 'Copiar', paste: 'Colar', selectAll: 'Selecionar tudo', find: 'Localizar…',
     replace: 'Substituir…', goToLine: 'Ir para a linha…', view: 'Exibir', editOnly: 'Somente editor',
-    split: 'Dividido', previewOnly: 'Somente visualização', fullscreen: 'Tela cheia', settings: 'Configurações…'
+    split: 'Dividido', previewOnly: 'Somente visualização', fullscreen: 'Tela cheia', settings: 'Configurações…',
+    showInFinder: 'Mostrar no Finder', showInExplorer: 'Mostrar no Explorador de Arquivos',
+    showInFileManager: 'Mostrar no gerenciador de arquivos'
   },
   dialog: {
     unsaved: 'O documento tem alterações não salvas. Deseja salvá-las?', save: 'Salvar', dontSave: 'Não salvar', cancel: 'Cancelar',
@@ -398,13 +428,16 @@ LOCALES['pt-BR'] = {
 LOCALES.ru = {
   name: 'Русский',
   menu: {
+    reopenTab: 'Открыть закрытую вкладку',
+    tabs: 'Вкладки', newTab: 'Новая вкладка', nextTab: 'Следующая вкладка', previousTab: 'Предыдущая вкладка',
     file: 'Файл', new: 'Создать', open: 'Открыть…', save: 'Сохранить', saveAs: 'Сохранить как…',
     exportHtml: 'Экспортировать в HTML…', exportPdf: 'Экспортировать в PDF…', quit: 'Выход',
     openRecent: 'Открыть недавние', clearRecent: 'Очистить список недавних', noRecent: 'Нет недавних файлов',
     print: 'Печать…', history: 'История версий…', edit: 'Правка', undo: 'Отменить', redo: 'Повторить',
     cut: 'Вырезать', copy: 'Копировать', paste: 'Вставить', selectAll: 'Выделить всё', find: 'Найти…',
     replace: 'Заменить…', goToLine: 'Перейти к строке…', view: 'Вид', editOnly: 'Только редактор',
-    split: 'Разделённый вид', previewOnly: 'Только предпросмотр', fullscreen: 'Полноэкранный режим', settings: 'Настройки…'
+    split: 'Разделённый вид', previewOnly: 'Только предпросмотр', fullscreen: 'Полноэкранный режим', settings: 'Настройки…',
+    showInFinder: 'Показать в Finder', showInExplorer: 'Показать в Проводнике', showInFileManager: 'Показать в файловом менеджере'
   },
   dialog: {
     unsaved: 'В документе есть несохранённые изменения. Сохранить их?', save: 'Сохранить', dontSave: 'Не сохранять', cancel: 'Отмена',
@@ -437,13 +470,16 @@ LOCALES.ru = {
 LOCALES.it = {
   name: 'Italiano',
   menu: {
+    reopenTab: 'Riapri scheda chiusa',
+    tabs: 'Schede', newTab: 'Nuova scheda', nextTab: 'Scheda successiva', previousTab: 'Scheda precedente',
     file: 'File', new: 'Nuovo', open: 'Apri…', save: 'Salva', saveAs: 'Salva con nome…',
     exportHtml: 'Esporta come HTML…', exportPdf: 'Esporta come PDF…', quit: 'Esci',
     openRecent: 'Apri recenti', clearRecent: 'Cancella file recenti', noRecent: 'Nessun file recente',
     print: 'Stampa…', history: 'Cronologia versioni…', edit: 'Modifica', undo: 'Annulla', redo: 'Ripristina',
     cut: 'Taglia', copy: 'Copia', paste: 'Incolla', selectAll: 'Seleziona tutto', find: 'Trova…',
     replace: 'Sostituisci…', goToLine: 'Vai alla riga…', view: 'Visualizza', editOnly: 'Solo editor',
-    split: 'Vista divisa', previewOnly: 'Solo anteprima', fullscreen: 'Schermo intero', settings: 'Impostazioni…'
+    split: 'Vista divisa', previewOnly: 'Solo anteprima', fullscreen: 'Schermo intero', settings: 'Impostazioni…',
+    showInFinder: 'Mostra nel Finder', showInExplorer: 'Mostra in Esplora file', showInFileManager: 'Mostra nel gestore file'
   },
   dialog: {
     unsaved: 'Il documento contiene modifiche non salvate. Salvarle?', save: 'Salva', dontSave: 'Non salvare', cancel: 'Annulla',
